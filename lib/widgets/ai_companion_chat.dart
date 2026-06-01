@@ -987,7 +987,7 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
       await _speech.listen(
         localeId: 'ar_EG',
         listenFor: const Duration(seconds: 25),
-        pauseFor: const Duration(seconds: 4),
+        pauseFor: const Duration(seconds: 2),
         listenOptions: stt.SpeechListenOptions(
           cancelOnError: false,
           partialResults: true,
@@ -1270,9 +1270,10 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
       case _VoiceState.listening:
         return 'سامعك كويس...';
       case _VoiceState.thinking:
-        return 'بفكر في كلامك لحظة';
+        // Removed "Thinking" indicator to make it more seamless
+        return 'سامعك كويس...';
       case _VoiceState.speaking:
-        return 'برد عليك بصوت وناس';
+        return 'وناس يتحدث...';
       case _VoiceState.done:
         return 'نكمل كلامنا؟';
     }
@@ -1287,9 +1288,8 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
       case _VoiceState.done:
         return 'تحدث مباشرة، أنا أستمع';
       case _VoiceState.listening:
-        return 'قول اللي في بالك بهدوء';
       case _VoiceState.thinking:
-        return 'ونس بيجهز رد مناسب ليك';
+        return 'قول اللي في بالك بهدوء';
       case _VoiceState.speaking:
         return 'تحدث في أي وقت لمقاطعتي';
     }
@@ -1303,93 +1303,57 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
         
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.rtl,
-        style: const TextStyle(
-          color: Color(0xFF2B2D42),
-          fontFamily: 'Cairo',
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          height: 1.5,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: Text(
+          text,
+          key: ValueKey(text),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.rtl,
+          style: const TextStyle(
+            color: Color(0xFF2B2D42),
+            fontFamily: 'Cairo',
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            height: 1.5,
+          ),
         ),
       ),
     );
   }
 
-  // ── أزرار التحكم السفلية ─────────────────────────────────────────
+  // ── زر كتم المايكروفون الوحيد ─────────────────────────────────────
   Widget _buildBottomControls() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildSmallControlButton(
-            icon: Icons.chat_bubble_rounded,
-            onTap: _close,
-          ),
-          
-          GestureDetector(
-            onTap: _toggleMute,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: _isMuted 
-                      ? [const Color(0xFFEF4444), const Color(0xFFB91C1C)]
-                      : [const Color(0xFF48BFE3), const Color(0xFF5E60CE)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (_isMuted ? const Color(0xFFEF4444) : const Color(0xFF5E60CE)).withValues(alpha: 0.4),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 5),
-                  )
-                ]
-              ),
-              child: Icon(
-                _isMuted ? Icons.mic_off_rounded : Icons.more_horiz_rounded,
-                color: Colors.white,
-                size: 32,
-              ),
+      padding: const EdgeInsets.only(bottom: 40),
+      child: GestureDetector(
+        onTap: _toggleMute,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _isMuted ? Colors.white : const Color(0xFFEF4444),
+            border: Border.all(
+              color: _isMuted ? const Color(0xFFEF4444) : Colors.transparent,
+              width: 3,
             ),
+            boxShadow: [
+              if (!_isMuted)
+                BoxShadow(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                  offset: const Offset(0, 5),
+                )
+            ]
           ),
-          
-          _buildSmallControlButton(
-            icon: Icons.close_rounded,
-            onTap: _close,
+          child: Icon(
+            _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+            color: _isMuted ? const Color(0xFFEF4444) : Colors.white,
+            size: 38,
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmallControlButton({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          boxShadow: [
-             BoxShadow(
-               color: Colors.black.withValues(alpha: 0.05),
-               blurRadius: 10,
-               spreadRadius: 1,
-             )
-          ]
-        ),
-        child: Icon(
-          icon,
-          color: const Color(0xFF8D99AE),
-          size: 20,
         ),
       ),
     );
@@ -1409,50 +1373,76 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
     });
 
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFF6F0FF),
-              Color(0xFFEAF5FF),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              Text(
-                 _stateLabel,
-                 style: const TextStyle(
-                   color: Color(0xFF8D99AE),
-                   fontFamily: 'Cairo',
-                   fontSize: 15,
-                   fontWeight: FontWeight.bold,
-                 ),
+      backgroundColor: const Color(0xFFfafaf9),
+      body: Stack(
+        children: [
+          // Background Gradient
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: _isMuted 
+                      ? [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)] 
+                      : [const Color(0xFFF6F0FF), const Color(0xFFEAF5FF)],
+                ),
               ),
-              
-              const Spacer(),
-              
-              _buildGlowingOrb(),
-              
-              const SizedBox(height: 60),
-              
-              _buildModernTranscript(),
-              
-              const Spacer(),
-              
-              _buildBottomControls(),
-              
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
-        ),
+          SafeArea(
+            child: Column(
+              children: [
+                // Top Bar with Close Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: _close,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 10),
+                Text(
+                   _stateLabel,
+                   style: const TextStyle(
+                     color: Color(0xFF8D99AE),
+                     fontFamily: 'Cairo',
+                     fontSize: 16,
+                     fontWeight: FontWeight.bold,
+                   ),
+                ),
+                
+                const Spacer(),
+                
+                _buildGlowingOrb(),
+                
+                const SizedBox(height: 70),
+                
+                _buildModernTranscript(),
+                
+                const Spacer(),
+                
+                _buildBottomControls(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
+
 

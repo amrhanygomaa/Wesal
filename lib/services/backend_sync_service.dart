@@ -202,8 +202,7 @@ class BackendSyncService {
     final overdueDosesFuture = listWhen(
         loadMedicationData, '/medications/overdue',
         query: (isResident || isFamily) ? scopedResidentQuery : null);
-    final activitiesFuture = listWhen(loadActivitiesData, '/activities',
-        query: (isResident || isFamily) ? scopedResidentQuery : null);
+    final activitiesFuture = listWhen(loadActivitiesData, '/activities');
     final complaintsFuture = listWhen(loadSocialData || isAdmin, '/complaints');
     final visitsFuture = noScopedResident
         ? Future<List<Map<String, dynamic>>?>.value(<Map<String, dynamic>>[])
