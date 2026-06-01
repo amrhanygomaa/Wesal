@@ -84,7 +84,7 @@
 
 Wanas (Arabic: وَنَس, meaning "companionship" or "warmth of company") is a comprehensive smart elderly care management system developed as a cross-platform mobile application using the Flutter framework. The system is designed to serve nursing homes and residential care facilities by digitising, streamlining, and connecting every aspect of elderly care across six distinct user roles: Administrator, Nurse, Elderly Resident, Family Member, Social Specialist, and Volunteer.
 
-The application addresses critical gaps in traditional nursing home management by integrating real-time communication, artificial intelligence, gamification, medication tracking, visit scheduling, social assessment tools, volunteer coordination, and data-driven reporting into a single unified platform. The backend is a RESTful API built with the NestJS framework, deployed on Amazon Web Services (AWS) EC2, and authenticated through AWS Cognito with JSON Web Tokens (JWT). Real-time capabilities are delivered via a WebSocket layer using Socket.IO. Data persistence relies on a PostgreSQL relational database, while binary assets are stored in Amazon S3.
+The application addresses critical gaps in traditional nursing home management by integrating real-time communication, artificial intelligence, gamification, medication tracking, visit scheduling, social assessment tools, volunteer coordination, and data-driven reporting into a single unified platform. The backend is a RESTful API built with the NestJS framework, deployed on Google Cloud Platform (GCP) EC2, and authenticated through Google Cloud Identity Platform / Firebase Auth with JSON Web Tokens (JWT). Real-time capabilities are delivered via a WebSocket layer using Socket.IO. Data persistence relies on a PostgreSQL relational database, while binary assets are stored in Google Cloud Storage (GCS).
 
 Wanas is designed with a strong emphasis on accessibility, supporting right-to-left (RTL) Arabic text rendering, adjustable font scaling, high-contrast modes, and dark themes. The system's AI companion feature — powered by a server-side language model — allows elderly residents to engage in meaningful conversation, receive personalised health recommendations, and interact with text-to-speech voice output, reducing isolation and improving mental well-being.
 
@@ -190,19 +190,19 @@ Wanas was designed specifically to solve all of these problems through a single,
 1. Implement a clean, scalable architecture separating concerns into models, services, providers, and screens.
 2. Achieve full RTL Arabic support across all screens and components.
 3. Maintain accessibility standards including adjustable font scaling, high-contrast mode, and dark mode.
-4. Integrate with a production-grade REST API secured by AWS Cognito JWT authentication.
+4. Integrate with a production-grade REST API secured by Google Cloud Identity Platform / Firebase Auth JWT authentication.
 5. Implement real-time event delivery via Socket.IO WebSocket connections.
 6. Support push notifications via Firebase Cloud Messaging (FCM) and local scheduling.
 7. Implement secure local storage for authentication tokens using Flutter Secure Storage.
 8. Support biometric authentication (fingerprint / face recognition) as an optional login method.
 9. Enable PDF generation and export for care reports.
-10. Integrate AWS S3 presigned upload for profile images, documents, and media assets.
+10. Integrate Google Cloud Storage (GCS) presigned upload for profile images, documents, and media assets.
 
 #### 4.3 Educational Objectives
 
 1. Demonstrate mastery of the Flutter framework and Dart programming language at a production level.
 2. Apply the Riverpod state management pattern across a complex, multi-role application.
-3. Integrate a NestJS backend with a PostgreSQL database and AWS cloud services.
+3. Integrate a NestJS backend with a PostgreSQL database and GCP cloud services.
 4. Apply software engineering principles including separation of concerns, single responsibility, and DRY.
 5. Demonstrate the integration of AI services into a consumer mobile application.
 
@@ -219,7 +219,7 @@ Wanas was designed specifically to solve all of these problems through a single,
 #### الأهداف التقنية
 - بناء معمارية نظيفة وقابلة للتوسع تفصل بين النماذج والخدمات والمزودين والشاشات.
 - تحقيق دعم كامل للغة العربية من اليمين إلى اليسار عبر جميع الشاشات.
-- التكامل مع واجهة REST API محمية بـ AWS Cognito.
+- التكامل مع واجهة REST API محمية بـ Google Cloud Identity Platform / Firebase Auth.
 
 ---
 
@@ -244,7 +244,7 @@ The following capabilities are implemented within the Wanas system:
 - **PDF generation** for nursing care reports exportable to print or file.
 - **Biometric authentication** as an optional login method.
 - **Accessibility** features including font scaling, dark mode, and high-contrast mode.
-- **AWS S3 integration** for profile photos, documents, and media uploads.
+- **Google Cloud Storage (GCS) integration** for profile photos, documents, and media uploads.
 - **Emergency SOS** alert system with contact notification.
 
 #### 5.2 Out of Scope
@@ -303,7 +303,7 @@ The Wanas system is built on a modern, carefully selected technology stack spann
 
 | Technology | Version | Purpose | Where Used |
 |---|---|---|---|
-| **AWS Cognito** | Cloud service | User pool, identity management, JWT issuance | `lib/services/auth_service.dart` |
+| **Google Cloud Identity Platform / Firebase Auth** | Cloud service | User pool, identity management, JWT issuance | `lib/services/auth_service.dart` |
 | **flutter_secure_storage** | ^10.0.0 | Encrypted local storage for JWT tokens | `lib/services/api_client.dart` |
 | **local_auth** | ^2.3.0 | Biometric authentication (fingerprint/face) | `lib/services/biometric_service.dart` |
 
@@ -352,9 +352,9 @@ The Wanas system is built on a modern, carefully selected technology stack spann
 | **NestJS** | Backend REST API framework | TypeScript, modular architecture |
 | **PostgreSQL** | Relational database | Primary data store for all entities |
 | **Amazon Web Services EC2** | Backend server hosting | Deployed instance running the NestJS API |
-| **AWS Cognito** | Identity and Access Management | User pools, JWT issuance, auth flows |
-| **Amazon S3** | Object storage | Profile photos, documents, media, reports |
-| **AWS Polly** | Text-to-speech (server-side) | AI companion speech synthesis (`/ai/speech` endpoint) |
+| **Google Cloud Identity Platform / Firebase Auth** | Identity and Access Management | User pools, JWT issuance, auth flows |
+| **Google Cloud Storage (GCS)** | Object storage | Profile photos, documents, media, reports |
+| **Google Cloud Text-to-Speech** | Text-to-speech (server-side) | AI companion speech synthesis (`/ai/speech` endpoint) |
 | **Firebase** | Push notification infrastructure | Firebase Cloud Messaging (FCM) project: `raaya-taptaba-app` |
 | **Socket.IO** | WebSocket server | Real-time event broadcasting |
 
@@ -368,11 +368,11 @@ The Wanas system is built on a modern, carefully selected technology stack spann
 - **Riverpod** لإدارة حالة التطبيق بنمط نظيف وقابل للاختبار.
 - **NestJS** كإطار عمل للواجهة الخلفية مبنيٍّ بـ TypeScript.
 - **PostgreSQL** كقاعدة بيانات علائقية رئيسية.
-- **AWS Cognito** لإدارة الهوية وإصدار رموز JWT.
-- **Amazon S3** لتخزين الملفات والصور والوثائق.
+- **Google Cloud Identity Platform / Firebase Auth** لإدارة الهوية وإصدار رموز JWT.
+- **Google Cloud Storage (GCS)** لتخزين الملفات والصور والوثائق.
 - **Firebase Cloud Messaging** للإشعارات الفورية.
 - **Socket.IO** للاتصال الآني ثنائي الاتجاه.
-- **AWS Polly** لتحويل النص إلى صوت في ميزة الرفيق الذكي.
+- **Google Cloud Text-to-Speech** لتحويل النص إلى صوت في ميزة الرفيق الذكي.
 
 ---
 
@@ -384,9 +384,9 @@ Wanas is a three-tier client–server system composed of:
 
 1. **Mobile Client (Flutter)** — A cross-platform application distributed to Android and iOS devices. The client handles all user interaction, local state management, UI rendering, and communication with the backend API. Six independent UI sub-systems serve six distinct user roles, each with a tailored navigation structure and feature set.
 
-2. **Backend API (NestJS on AWS EC2)** — A RESTful HTTP API served at `https://api.helpers-tech.com`. It handles business logic, database operations, file storage coordination (via S3 presigned URLs), AI model orchestration, push notification delivery, and real-time event broadcasting. Authentication is enforced at every protected endpoint via JWT bearer tokens issued by AWS Cognito.
+2. **Backend API (NestJS on Google Compute Engine (GCE))** — A RESTful HTTP API served at `https://api.helpers-tech.com`. It handles business logic, database operations, file storage coordination (via S3 presigned URLs), AI model orchestration, push notification delivery, and real-time event broadcasting. Authentication is enforced at every protected endpoint via JWT bearer tokens issued by Google Cloud Identity Platform / Firebase Auth.
 
-3. **Cloud Services Layer (AWS + Firebase)** — A set of managed cloud services that augment the backend: AWS Cognito for identity management, Amazon S3 for binary file storage, AWS Polly for speech synthesis, and Firebase Cloud Messaging for push notification delivery.
+3. **Cloud Services Layer (GCP + Firebase)** — A set of managed cloud services that augment the backend: Google Cloud Identity Platform / Firebase Auth for identity management, Google Cloud Storage (GCS) for binary file storage, Google Cloud Text-to-Speech for speech synthesis, and Firebase Cloud Messaging for push notification delivery.
 
 ### Data Flow Summary
 
@@ -397,11 +397,11 @@ Wanas is a three-tier client–server system composed of:
 [Riverpod Provider] ─── updates ──▶ [UI Widget Tree]
         │
         ▼
-[Service Layer] ─── HTTP / WebSocket ──▶ [NestJS API on AWS EC2]
+[Service Layer] ─── HTTP / WebSocket ──▶ [NestJS API on Google Compute Engine (GCE)]
                                                 │
                               ┌─────────────────┼──────────────────┐
                               ▼                 ▼                  ▼
-                      [PostgreSQL DB]    [AWS S3 Storage]   [AWS Cognito]
+                      [PostgreSQL DB]    [Google Cloud Storage (GCS) Storage]   [Google Cloud Identity Platform / Firebase Auth]
                                                 │
                               ┌─────────────────┘
                               ▼
@@ -421,8 +421,8 @@ Every user role in Wanas interacts with a different subset of system features, b
 وَنَس نظام ذو ثلاث طبقات:
 
 - **تطبيق الهاتف (Flutter):** يتعامل مع المستخدم ويعرض الواجهات ويتواصل مع الواجهة الخلفية عبر HTTP وWebSocket.
-- **واجهة برمجية خلفية (NestJS على AWS EC2):** تُنفِّذ منطق الأعمال وتُدير قاعدة البيانات وتُنسِّق خدمات السحابة.
-- **طبقة الخدمات السحابية (AWS + Firebase):** تشمل Cognito للهوية، وS3 للتخزين، وPolly للكلام، وFCM للإشعارات.
+- **واجهة برمجية خلفية (NestJS على Google Compute Engine (GCE)):** تُنفِّذ منطق الأعمال وتُدير قاعدة البيانات وتُنسِّق خدمات السحابة.
+- **طبقة الخدمات السحابية (GCP + Firebase):** تشمل Cognito للهوية، وS3 للتخزين، وPolly للكلام، وFCM للإشعارات.
 
 تتدفق البيانات من فعل المستخدم في التطبيق عبر Riverpod ثم إلى طبقة الخدمات ثم إلى الواجهة البرمجية وقاعدة البيانات، مع ضمان تزامن البيانات بين جميع الأدوار في الوقت الفعلي.
 
@@ -443,7 +443,7 @@ graph TB
         CFG[Config\nApiConfig]
     end
 
-    subgraph "Backend - NestJS on AWS EC2"
+    subgraph "Backend - NestJS on Google Compute Engine (GCE)"
         AUTH[Auth Module\nCognito + JWT Guard]
         RESI[Residents Module]
         MEDS[Medications Module]
@@ -457,9 +457,9 @@ graph TB
     end
 
     subgraph "Cloud Services"
-        COGI[AWS Cognito\nUser Pool]
-        S3[Amazon S3\nFile Storage]
-        POLLY[AWS Polly\nText-to-Speech]
+        COGI[Google Cloud Identity Platform / Firebase Auth\nUser Pool]
+        S3[Google Cloud Storage (GCS)\nFile Storage]
+        POLLY[Google Cloud Text-to-Speech\nText-to-Speech]
         FCM[Firebase FCM\nPush Notifications]
         PG[(PostgreSQL\nDatabase)]
     end
@@ -591,7 +591,7 @@ Tbtba-main/
 │   │   └── app_riverpod.dart        # Single Riverpod ChangeNotifier (800+ lines)
 │   ├── services/                    # 35+ service classes — one per domain
 │   │   ├── api_client.dart          # HTTP client with JWT injection and token storage
-│   │   ├── auth_service.dart        # AWS Cognito login / register / refresh / logout
+│   │   ├── auth_service.dart        # Google Cloud Identity Platform / Firebase Auth login / register / refresh / logout
 │   │   ├── backend_sync_service.dart     # Full data load snapshot from backend
 │   │   ├── backend_mutation_service.dart # Create / update write operations
 │   │   ├── realtime_service.dart    # Socket.IO WebSocket connection and event stream
@@ -690,7 +690,7 @@ Tbtba-main/
 | Email / Password Login | Authenticate via backend Cognito integration returning JWT tokens | All | `screens/auth/login_screen.dart`, `services/auth_service.dart` |
 | Self-Registration | Family members and volunteers register themselves | Family, Volunteer | `screens/auth/register_screen.dart` |
 | Admin / Facility Registration | Administrator registers the facility and creates the first admin account | Admin | `screens/auth/admin_register_screen.dart` |
-| Forgot Password | Email-based password reset via AWS Cognito | All | `screens/auth/forgot_password_screen.dart` |
+| Forgot Password | Email-based password reset via Google Cloud Identity Platform / Firebase Auth | All | `screens/auth/forgot_password_screen.dart` |
 | Biometric Login | Optional fingerprint or face ID authentication | All | `services/biometric_service.dart` |
 | Session Persistence | JWT stored securely; auto-restored on relaunch | All | `services/api_client.dart`, `flutter_secure_storage` |
 | Token Refresh | Automatic JWT refresh before expiry using Cognito Refresh Token | All | `services/auth_service.dart` |
@@ -814,7 +814,7 @@ Tbtba-main/
 - All API communication uses HTTPS (TLS 1.2+) to `https://api.helpers-tech.com`.
 - JWT access tokens are stored exclusively in `flutter_secure_storage`, which uses the Android Keystore and iOS Keychain.
 - JWT tokens are attached to every authenticated API request as `Authorization: Bearer {token}`.
-- Authentication is managed through AWS Cognito, a SOC 2 Type II certified identity service.
+- Authentication is managed through Google Cloud Identity Platform / Firebase Auth, a SOC 2 Type II certified identity service.
 - The admin registration endpoint is protected by a server-side secret (`ADMIN_SETUP_SECRET`) to prevent unauthorised facility creation.
 - Biometric authentication is available as an optional additional security layer.
 - No sensitive data (passwords, tokens) is logged in production.
@@ -831,7 +831,7 @@ Tbtba-main/
 #### 11.4 Scalability
 - The NestJS backend is stateless and horizontally scalable behind a load balancer.
 - PostgreSQL supports vertical scaling and read replicas for increased load.
-- AWS S3 provides virtually unlimited storage for media and document assets.
+- Google Cloud Storage (GCS) provides virtually unlimited storage for media and document assets.
 - The Riverpod state management architecture cleanly separates concerns, allowing new features to be added without affecting existing modules.
 
 #### 11.5 Maintainability
@@ -857,9 +857,9 @@ Tbtba-main/
 ### المتطلبات غير الوظيفية (عربي)
 
 - **الأداء:** تحميل لوحة التحكم خلال 3 ثوانٍ، واستجابة الواجهة البرمجية خلال 10 ثوانٍ، مع موازاة طلبات البيانات لتقليل وقت التحميل.
-- **الأمان:** HTTPS لجميع الاتصالات، JWT في تخزين آمن مشفر، AWS Cognito لإدارة الهوية، وحماية نقطة تسجيل المدير بسر خادم.
+- **الأمان:** HTTPS لجميع الاتصالات، JWT في تخزين آمن مشفر، Google Cloud Identity Platform / Firebase Auth لإدارة الهوية، وحماية نقطة تسجيل المدير بسر خادم.
 - **سهولة الاستخدام:** دعم كامل للعربية RTL، خط Cairo بثمانية أوزان، تحجيم الخط، الوضع عالي التباين، والوضع الداكن.
-- **قابلية التوسع:** خلفية NestJS عديمة الحالة وقابلة للتوسع أفقيًا، وPostgreSQL وAWS S3 لاستيعاب نمو البيانات.
+- **قابلية التوسع:** خلفية NestJS عديمة الحالة وقابلة للتوسع أفقيًا، وPostgreSQL وGoogle Cloud Storage (GCS) لاستيعاب نمو البيانات.
 - **قابلية الصيانة:** مبدأ المسؤولية الفردية عبر ملفات الخدمة، وتركيز النماذج والثيمات في ملفات مفردة.
 - **التوافق:** Android 5.0+ وiOS 12.0+ مع Flutter SDK الحديث.
 
@@ -943,7 +943,7 @@ Represents staff and volunteer user accounts created by the admin.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | id | UUID | PK | Internal user ID |
-| cognito_sub | VARCHAR | UNIQUE | AWS Cognito user subject ID |
+| cognito_sub | VARCHAR | UNIQUE | Google Cloud Identity Platform / Firebase Auth user subject ID |
 | facility_id | UUID | FK → facilities | Employing facility |
 | name | VARCHAR | NOT NULL | Display name |
 | email | VARCHAR | UNIQUE, NOT NULL | Login email |
@@ -1299,7 +1299,7 @@ The Wanas backend exposes a RESTful API at `https://api.helpers-tech.com`. All p
 | POST | `/ai/chat` | JWT | Send a message to the AI companion; returns AI response |
 | GET | `/ai/recommendations/:residentId` | JWT (Admin/Nurse/Specialist) | Get AI-generated care recommendations for a resident |
 | GET/POST | `/ai/memory/:residentId` | JWT | Read or update persistent AI memory for a resident |
-| POST | `/ai/speech` | JWT | Text-to-speech synthesis; returns audio stream (AWS Polly) |
+| POST | `/ai/speech` | JWT | Text-to-speech synthesis; returns audio stream (Google Cloud Text-to-Speech) |
 | POST | `/ai/media/upload` | JWT | Get presigned S3 URL for AI-related media |
 | PATCH | `/ai/media/:id/confirm` | JWT | Confirm AI media upload |
 
@@ -1397,10 +1397,10 @@ The Wanas backend exposes a RESTful API at `https://api.helpers-tech.com`. All p
 
 #### 14.1 Authentication Architecture
 
-Wanas uses a delegated authentication architecture where the backend acts as a proxy to AWS Cognito:
+Wanas uses a delegated authentication architecture where the backend acts as a proxy to Google Cloud Identity Platform / Firebase Auth:
 
 ```
-Flutter App → POST /auth/login → NestJS Backend → AWS Cognito InitiateAuth
+Flutter App → POST /auth/login → NestJS Backend → Google Cloud Identity Platform / Firebase Auth InitiateAuth
                                       ↓
                                Cognito validates credentials
                                       ↓
@@ -1415,7 +1415,7 @@ This design keeps the Cognito `COGNITO_CLIENT_SECRET` on the server, preventing 
 
 #### 14.2 JWT Token Structure
 
-AWS Cognito issues signed JWT tokens. The `id_token` payload contains:
+Google Cloud Identity Platform / Firebase Auth issues signed JWT tokens. The `id_token` payload contains:
 
 ```json
 {
@@ -1473,7 +1473,7 @@ A special endpoint `POST /auth/register-admin` is used to bootstrap the first ad
 
 ### المصادقة والتفويض (عربي)
 
-يعتمد وَنَس على معمارية مصادقة مُفوَّضة حيث تعمل الخلفية كوكيل بين تطبيق Flutter وخدمة AWS Cognito:
+يعتمد وَنَس على معمارية مصادقة مُفوَّضة حيث تعمل الخلفية كوكيل بين تطبيق Flutter وخدمة Google Cloud Identity Platform / Firebase Auth:
 
 - يُرسل التطبيق بريد المستخدم وكلمته إلى الخلفية عبر `POST /auth/login`.
 - تتحقق الخلفية من الاعتمادات مع Cognito وتُعيد رمز JWT إلى التطبيق.
@@ -1967,7 +1967,7 @@ When a nurse or resident skips a dose:
 |---|---|---|
 | Transport | All communication over HTTPS/TLS 1.2+ | `ApiConfig.baseUrl` uses `https://` |
 | Token Storage | JWT stored in encrypted native secure storage | `flutter_secure_storage` (Keystore/Keychain) |
-| Authentication | Delegated to AWS Cognito (SOC 2 Type II) | `auth_service.dart` via backend proxy |
+| Authentication | Delegated to Google Cloud Identity Platform / Firebase Auth (SOC 2 Type II) | `auth_service.dart` via backend proxy |
 | Admin Registration | Server-side secret required | `ADMIN_SETUP_SECRET` env variable |
 | Input Validation | Backend rejects unknown fields | NestJS `ValidationPipe (whitelist: true)` |
 | Biometric | Optional device-level authentication | `local_auth` package |
@@ -1989,7 +1989,7 @@ The following improvements are recommended for a production release:
 
 5. **Access Token Lifetime:** Reduce the Cognito ID token expiry from the default 1 hour to 15–30 minutes, with silent refresh handled transparently.
 
-6. **Data Encryption at Rest:** Enable PostgreSQL Transparent Data Encryption or use AWS RDS with encryption enabled for the database volume.
+6. **Data Encryption at Rest:** Enable PostgreSQL Transparent Data Encryption or use Google Cloud SQL with encryption enabled for the database volume.
 
 7. **Dependency Scanning:** Integrate dependency vulnerability scanning (e.g., `flutter pub audit`, Snyk) into the CI/CD pipeline to detect vulnerable packages.
 
@@ -2002,7 +2002,7 @@ The following improvements are recommended for a production release:
 **التدابير المُنفَّذة:**
 - HTTPS/TLS لجميع الاتصالات بدون استثناء.
 - تخزين JWT في مخزن مشفر بالكامل (Keystore على أندرويد، Keychain على iOS).
-- مصادقة مُفوَّضة لـ AWS Cognito المعتمد على معيار SOC 2.
+- مصادقة مُفوَّضة لـ Google Cloud Identity Platform / Firebase Auth المعتمد على معيار SOC 2.
 - حماية نقطة تسجيل المدير بسر خادم.
 - عزل البيانات بحسب المرفق في كل طلب قاعدة بيانات.
 - روابط S3 مؤقتة وموقَّعة مسبقًا لرفع الملفات.
@@ -2259,7 +2259,7 @@ storeFile=path/to/your/keystore.jks
 
 #### 21.5 Production Deployment
 
-The production backend is deployed on **AWS EC2** and served at `https://api.helpers-tech.com`.
+The production backend is deployed on **Google Compute Engine (GCE)** and served at `https://api.helpers-tech.com`.
 
 **Deployment steps (for backend updates):**
 1. SSH into the EC2 instance.
@@ -2276,15 +2276,15 @@ The production backend is deployed on **AWS EC2** and served at `https://api.hel
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `COGNITO_REGION` | Yes | AWS region (e.g., `us-east-1`) |
+| `COGNITO_REGION` | Yes | GCP region (e.g., `us-east-1`) |
 | `COGNITO_USER_POOL_ID` | Yes | Cognito User Pool ID |
 | `COGNITO_CLIENT_ID` | Yes | Cognito App Client ID |
 | `COGNITO_CLIENT_SECRET` | Yes | Cognito App Client Secret |
 | `ADMIN_SETUP_SECRET` | Yes | Secret for admin registration endpoint |
-| `AWS_ACCESS_KEY_ID` | Yes | AWS IAM access key (S3, Polly) |
-| `AWS_SECRET_ACCESS_KEY` | Yes | AWS IAM secret key |
+| `AWS_ACCESS_KEY_ID` | Yes | GCP IAM access key (S3, Polly) |
+| `AWS_SECRET_ACCESS_KEY` | Yes | GCP IAM secret key |
 | `AWS_S3_BUCKET` | Yes | S3 bucket name for file storage |
-| `AWS_REGION` | Yes | AWS region for S3 and Polly |
+| `AWS_REGION` | Yes | GCP region for S3 and Polly |
 
 ---
 
@@ -2308,7 +2308,7 @@ The production backend is deployed on **AWS EC2** and served at `https://api.hel
 4. تشغيل الخادم بـ `npm run start:dev`.
 
 **النشر على الإنتاج:**
-الخلفية مُنشَرة على AWS EC2 وتُدار بـ PM2. التطبيق المحمول يُوزَّع عبر متجر Google Play وApp Store Connect.
+الخلفية مُنشَرة على Google Compute Engine (GCE) وتُدار بـ PM2. التطبيق المحمول يُوزَّع عبر متجر Google Play وApp Store Connect.
 
 ---
 
@@ -2439,7 +2439,7 @@ The following enhancements are realistic and professionally recommended for futu
 
 Wanas represents a significant achievement in the application of modern software engineering to the domain of elderly care. Over the course of this graduation project, the team successfully designed and implemented a comprehensive, production-oriented mobile system that addresses real-world challenges faced by nursing homes, elderly residents, their families, and care staff.
 
-The system demonstrates mastery across multiple technology domains: cross-platform mobile development with Flutter, state management with Riverpod, cloud authentication with AWS Cognito, real-time communication with Socket.IO, AI companion integration, push notification delivery via Firebase, and secure file handling with AWS S3. The six-role architecture — Administrator, Nurse, Elderly Resident, Family Member, Social Specialist, and Volunteer — reflects a deep understanding of the human ecosystem within a care facility and the importance of providing each stakeholder with tools tailored precisely to their responsibilities and needs.
+The system demonstrates mastery across multiple technology domains: cross-platform mobile development with Flutter, state management with Riverpod, cloud authentication with Google Cloud Identity Platform / Firebase Auth, real-time communication with Socket.IO, AI companion integration, push notification delivery via Firebase, and secure file handling with Google Cloud Storage (GCS). The six-role architecture — Administrator, Nurse, Elderly Resident, Family Member, Social Specialist, and Volunteer — reflects a deep understanding of the human ecosystem within a care facility and the importance of providing each stakeholder with tools tailored precisely to their responsibilities and needs.
 
 Beyond the technical achievements, Wanas embodies a human-centred design philosophy. The elderly-facing interface was designed with accessibility at its core: large Arabic text, simplified navigation, a conversational AI companion, and an emergency SOS system. These features speak to the project's deeper mission — not merely to digitise administrative processes, but to genuinely improve the quality of life of the people at the heart of the system: the elderly residents themselves.
 
@@ -2455,7 +2455,7 @@ The team is grateful for the guidance of Dr. Nabil El Ghamry and Dr. Amina Fawzy
 
 يمثّل مشروع وَنَس إنجازًا علميًا وتقنيًا متكاملًا يعكس عمق الفهم والاستثمار العملي لتقنيات الهندسة البرمجية الحديثة في خدمة فئة إنسانية تستحق العناية — كبار السن.
 
-على مدار هذا المشروع، تمكّن الفريق من تصميم وبناء نظام متكامل متعدد الأدوار يُعالج تحديات حقيقية تواجه دور رعاية المسنين، ويجمع بين التقنيات الأكثر حداثةً: تطوير تطبيق محمول متعدد الأنظمة بـ Flutter، وإدارة الحالة بـ Riverpod، ومصادقة سحابية بـ AWS Cognito، واتصال آني بـ Socket.IO، ودمج رفيق ذكاء اصطناعي محادث، وإشعارات فورية عبر Firebase، وتخزين آمن للملفات بـ AWS S3.
+على مدار هذا المشروع، تمكّن الفريق من تصميم وبناء نظام متكامل متعدد الأدوار يُعالج تحديات حقيقية تواجه دور رعاية المسنين، ويجمع بين التقنيات الأكثر حداثةً: تطوير تطبيق محمول متعدد الأنظمة بـ Flutter، وإدارة الحالة بـ Riverpod، ومصادقة سحابية بـ Google Cloud Identity Platform / Firebase Auth، واتصال آني بـ Socket.IO، ودمج رفيق ذكاء اصطناعي محادث، وإشعارات فورية عبر Firebase، وتخزين آمن للملفات بـ Google Cloud Storage (GCS).
 
 لكن الإنجاز الأعمق يكمن في الفلسفة الإنسانية التي تجمع هذا كله: "وَنَس" ليس مجرد تطبيقًا لإدارة المرافق الصحية، بل هو مشروع يضع المسن في قلب كل قرار تصميمي — من واجهة مبسّطة تراعي احتياجاته البصرية والمعرفية، إلى رفيق ذكي يؤنسه، إلى زر طوارئ يُطمئنه أنه ليس وحيدًا.
 
@@ -2477,7 +2477,7 @@ The team is grateful for the guidance of Dr. Nabil El Ghamry and Dr. Amina Fawzy
 
 4. NestJS Authors. (2024). *NestJS — A progressive Node.js framework.* https://nestjs.com
 5. Amazon Web Services. (2024). *Amazon Cognito — User authentication and authorisation.* https://aws.amazon.com/cognito/
-6. Amazon Web Services. (2024). *Amazon S3 — Object storage.* https://aws.amazon.com/s3/
+6. Amazon Web Services. (2024). *Google Cloud Storage (GCS) — Object storage.* https://aws.amazon.com/s3/
 7. Amazon Web Services. (2024). *Amazon Polly — Text-to-speech service.* https://aws.amazon.com/polly/
 8. PostgreSQL Global Development Group. (2024). *PostgreSQL documentation.* https://www.postgresql.org/docs/
 
@@ -2520,7 +2520,7 @@ The team is grateful for the guidance of Dr. Nabil El Ghamry and Dr. Amina Fawzy
 ### 1. UI/UX Notification System Overhaul
 - **Previous Mechanism:** Custom Overlay entries (`_TopAlertOverlay`) which caused `Ticker` stability issues.
 - **New Mechanism:** Global `ScaffoldMessenger` Snackbars. All system notifications and alerts are now displayed as animated, professional floating popups.
-- **Server Terminology Abstraction:** To improve end-user experience, all technical AWS Cognito terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding AWS complexities from the UI.
+- **Server Terminology Abstraction:** To improve end-user experience, all technical Google Cloud Identity Platform / Firebase Auth terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding GCP complexities from the UI.
 
 ### 2. AI Voice Assistant (Companion) Refactoring
 - **Interaction Flow:** Removed the explicit "Thinking" (Wait state) visual indicator. The AI now seamlessly auto-deduces when the user has finished speaking by utilizing a 2-second voice activity detection timeout (down from 4 seconds).
@@ -2531,3 +2531,8 @@ The team is grateful for the guidance of Dr. Nabil El Ghamry and Dr. Amina Fawzy
 - **Previous Bug:** Family accounts were unable to view the resident's activities because the API request was rigidly scoped to the `residentId`, while activities are often created as facility-wide events.
 - **Resolution:** Modified the backend sync service (`backend_sync_service.dart`) to fetch activities for the Family and Resident roles without appending the `residentId` query parameter, ensuring all relevant facility activities are displayed correctly.
 
+
+### 4. Cloud Infrastructure Migration to GCP
+- **Migration:** The entire backend infrastructure has been migrated from AWS to Google Cloud Platform (GCP).
+- **Services Replaced:** Cognito was replaced with Google Cloud Identity Platform/Firebase Auth, S3 with Google Cloud Storage, RDS with Cloud SQL, and EC2 with Google Compute Engine.
+- **Authentication:** Service account credentials (`google-service-account.json`) are now used for secure backend communication with GCP services.

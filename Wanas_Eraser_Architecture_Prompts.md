@@ -11,8 +11,8 @@ Diagram Style: Professional, academic, clean, suitable for university graduation
 - The repository is primarily a Flutter application named `riaya_app`, with Android, iOS, web, Windows, Linux, and macOS targets.
 - The frontend uses Flutter, Riverpod state management, `AppRiverpod`, shared widgets, role-based dashboards, local secure storage, local notifications, device media/contacts/microphone APIs, and many domain services under `lib/services`.
 - The checked-in backend source code is not present in this workspace. Backend architecture is based on `docs/backend-contract.md`, `docs/backend-gap-analysis.md`, and `docs/backend-routes.raw.txt`.
-- The documented backend is an external AWS backend exposed at `https://api.helpers-tech.com`, with NestJS-style controllers in the route dump, Cognito authentication, RDS PostgreSQL data storage, S3 presigned upload flows, AI endpoints, notifications, and realtime events.
-- No AWS infrastructure-as-code or complete deployment configuration was found in this repository. The AWS diagram prompt below is therefore labeled as a recommended AWS deployment architecture.
+- The documented backend is an external GCP backend exposed at `https://api.helpers-tech.com`, with NestJS-style controllers in the route dump, Cognito authentication, RDS PostgreSQL data storage, S3 presigned upload flows, AI endpoints, notifications, and realtime events.
+- No GCP infrastructure-as-code or complete deployment configuration was found in this repository. The GCP diagram prompt below is therefore labeled as a recommended GCP deployment architecture.
 
 ---
 
@@ -95,7 +95,7 @@ Use these layers and components:
    - `s3_upload_helper`: HTTP PUT upload to presigned S3 URLs
 
 7. Backend/API Layer
-   Label this group: "External AWS Backend API - documented contract"
+   Label this group: "External GCP Backend API - documented contract"
    Add a note inside the group: "Backend source is not included in this Flutter repository; routes are documented in `/docs`."
    Show it as a NestJS-style REST API because the route dump uses controller decorators.
    Include:
@@ -131,7 +131,7 @@ Use these layers and components:
      - Protected endpoints for authenticated users
 
 8. Data Layer
-   Label this group: "Database Layer - AWS RDS PostgreSQL"
+   Label this group: "Database Layer - Google Cloud SQL (PostgreSQL)"
    Include logical data domains, not invented physical tables:
    - Users, roles, managed users, staff reviews
    - Facilities, facility profile, emergency contacts, billing settings, facility inquiries
@@ -149,23 +149,23 @@ Use these layers and components:
 9. External Services Layer
    Label this group: "External Services and Integrations"
    Include:
-   - AWS Cognito User Pool: authentication, roles, JWT tokens, refresh flow
-   - AWS S3: media, documents, profile photos through presigned upload URLs
-   - AWS Bedrock: AI chat, recommendations, summaries, predictive alerts, family updates, cognitive game support
-   - AWS Polly or backend speech provider: AI speech synthesis
+   - Google Cloud Identity Platform / Firebase Auth User Pool: authentication, roles, JWT tokens, refresh flow
+   - Google Cloud Storage (GCS): media, documents, profile photos through presigned upload URLs
+   - GCP Bedrock: AI chat, recommendations, summaries, predictive alerts, family updates, cognitive game support
+   - Google Cloud Text-to-Speech or backend speech provider: AI speech synthesis
    - Firebase Cloud Messaging: mobile push notifications
    - Socket.IO realtime namespace `/realtime`: live events, notifications, messages, vitals updates, SOS alerts
    - Device integrations: biometric authentication, contacts, camera/gallery, microphone, local notifications, PDF export
 
 Draw these data flows with arrows:
 
-- User Roles -> Flutter Client Application -> Splash/Onboarding/Login -> AuthService -> `POST /auth/login` -> Backend Auth Controller -> AWS Cognito -> JWT tokens returned -> ApiClient stores tokens in Flutter Secure Storage -> AppRiverpod routes user to role dashboard.
-- Flutter role dashboards -> AppRiverpod -> BackendSyncService -> ApiClient -> documented REST API controllers -> AWS RDS PostgreSQL -> mapped domain models -> role-specific screens.
-- Forms and actions -> BackendMutationService/domain services -> REST API mutation endpoints -> AWS RDS PostgreSQL -> refreshed sync data.
+- User Roles -> Flutter Client Application -> Splash/Onboarding/Login -> AuthService -> `POST /auth/login` -> Backend Auth Controller -> Google Cloud Identity Platform / Firebase Auth -> JWT tokens returned -> ApiClient stores tokens in Flutter Secure Storage -> AppRiverpod routes user to role dashboard.
+- Flutter role dashboards -> AppRiverpod -> BackendSyncService -> ApiClient -> documented REST API controllers -> Google Cloud SQL (PostgreSQL) -> mapped domain models -> role-specific screens.
+- Forms and actions -> BackendMutationService/domain services -> REST API mutation endpoints -> Google Cloud SQL (PostgreSQL) -> refreshed sync data.
 - File/media upload flow: Flutter file picker or camera -> upload service -> API presigned upload request -> S3 presigned PUT upload -> API confirm endpoint -> database stores S3 URL/key.
 - Push notification flow: Flutter registers FCM token -> `/notifications/push-tokens` -> Backend Notifications Controller -> Firebase Cloud Messaging -> mobile device notification -> App navigation handler.
 - Realtime flow: Flutter RealtimeService -> Socket.IO `/realtime` -> backend realtime events -> live banners, notification center, SOS, messages, vitals updates.
-- AI flow: AI Companion/AI screens -> AiService -> AI API endpoints -> AWS Bedrock/Polly -> AI response/audio -> Flutter UI.
+- AI flow: AI Companion/AI screens -> AiService -> AI API endpoints -> GCP Bedrock/Polly -> AI response/audio -> Flutter UI.
 - SOS workflow: Resident or Nurse SOS control -> EmergencyService -> `/emergency/sos` -> database emergency alert -> realtime SOS event and notification flow -> Nurse/Family/Admin screens.
 - Reporting workflow: Nurse/Admin reports screens -> NursingReportsService -> reports endpoints -> RDS data aggregation -> PDF/export or preview response -> Flutter report UI.
 
@@ -181,7 +181,7 @@ Visual style requirements:
 
 ### Notes
 
-This diagram fits Wanas because the repository is a Flutter/Riverpod client with role-based dashboards, a central provider, a service-based API integration layer, AWS Cognito authentication, documented REST backend modules, RDS PostgreSQL data domains, S3 presigned uploads, realtime events, Firebase push notifications, and AI endpoints. The backend implementation is documented but not present in this repository, so the diagram should represent it as an external documented AWS backend API rather than local source code.
+This diagram fits Wanas because the repository is a Flutter/Riverpod client with role-based dashboards, a central provider, a service-based API integration layer, Google Cloud Identity Platform / Firebase Auth authentication, documented REST backend modules, RDS PostgreSQL data domains, S3 presigned uploads, realtime events, Firebase push notifications, and AI endpoints. The backend implementation is documented but not present in this repository, so the diagram should represent it as an external documented GCP backend API rather than local source code.
 
 ---
 
@@ -189,13 +189,13 @@ This diagram fits Wanas because the repository is a Flutter/Riverpod client with
 
 ### Diagram Name
 
-AWS Deployment Architecture Wanas
+GCP Deployment Architecture Wanas
 
 ### Eraser.ai Prompt
 
-Create a professional AWS cloud architecture diagram titled "Recommended AWS Deployment Architecture for Wanas". This is a recommended deployment architecture based on the actual Wanas stack. Do not label it as already implemented. Use English labels only. Keep the diagram realistic for a university graduation project and do not overcomplicate it.
+Create a professional GCP cloud architecture diagram titled "Recommended GCP Deployment Architecture for Wanas". This is a recommended deployment architecture based on the actual Wanas stack. Do not label it as already implemented. Use English labels only. Keep the diagram realistic for a university graduation project and do not overcomplicate it.
 
-Important instruction: The repository does not contain AWS infrastructure-as-code. Show this as "Recommended AWS Deployment Architecture", not as an existing deployed architecture.
+Important instruction: The repository does not contain GCP infrastructure-as-code. Show this as "Recommended GCP Deployment Architecture", not as an existing deployed architecture.
 
 Use these architecture groups:
 
@@ -206,12 +206,12 @@ Use these architecture groups:
 
 2. DNS, TLS, and Edge Layer
    - Amazon Route 53 for domain management
-   - AWS Certificate Manager for SSL/TLS certificates
+   - GCP Certificate Manager for SSL/TLS certificates
    - Amazon CloudFront for the Flutter web frontend CDN
    - Public API domain such as `api.wanas.edu` or existing API domain `api.helpers-tech.com`
 
 3. Frontend Hosting
-   - Amazon S3 bucket for Flutter web static build files
+   - Google Cloud Storage (GCS) bucket for Flutter web static build files
    - CloudFront distribution in front of the S3 frontend bucket
    - Mobile apps are distributed as installed Flutter apps and call the same backend API
    - Build-time configuration uses `API_BASE_URL`; it is not a secret
@@ -233,7 +233,7 @@ Use these architecture groups:
    - Node.js/NestJS-style Wanas Backend API running on EC2
    - REST API controllers for Auth, Residents, Medications, Health, Nursing, Social, Family Bridge, Billing, Volunteers, Messages, Notifications, Emergency, Reports, AI, Video Calls, KPI
    - Socket.IO realtime endpoint `/realtime`
-   - Backend communicates with AWS Cognito, RDS PostgreSQL, S3, Bedrock/Polly, Firebase Cloud Messaging, and CloudWatch
+   - Backend communicates with Google Cloud Identity Platform / Firebase Auth, RDS PostgreSQL, S3, Bedrock/Polly, Firebase Cloud Messaging, and CloudWatch
 
 6. Authentication and Authorization
    - Amazon Cognito User Pool in `us-east-1`
@@ -250,7 +250,7 @@ Use these architecture groups:
    - Logical database domains: users, facilities, residents, health vitals, medications, nursing operations, social assessments, complaints, family bridge, billing, memories, volunteers, reports, messages, notifications, video calls, emergency alerts, user preferences, user progress, AI memory
 
 8. File and Media Storage
-   - Private Amazon S3 uploads bucket
+   - Private Google Cloud Storage (GCS) uploads bucket
    - Stored objects: resident documents, profile photos, family media, AI media uploads, volunteer documents, voice messages
    - Backend creates presigned upload URLs
    - Client uploads directly to S3 with HTTP PUT
@@ -270,7 +270,7 @@ Use these architecture groups:
    - Realtime event types: notifications, messages, vitals updates, SOS alerts
 
 11. Secrets, Configuration, and IAM
-   - AWS Secrets Manager or Systems Manager Parameter Store for:
+   - GCP Secrets Manager or Systems Manager Parameter Store for:
      - Database connection string
      - Cognito client secret if used by backend
      - `ADMIN_SETUP_SECRET`
@@ -310,12 +310,12 @@ Security and diagram constraints:
   - RDS Security Group allows PostgreSQL only from backend security group.
   - S3 uploads bucket is private and accessed through presigned URLs.
 - Do not include Lambda, API Gateway, ECS/Fargate, DynamoDB, DocumentDB, or Kubernetes because the current project does not show a serverless, containerized, NoSQL, MongoDB-compatible, or Kubernetes architecture.
-- Keep the layout clean and academic. Use AWS service icons, grouped VPC/subnet boundaries, clear labels, and directional arrows.
-- Add a note box: "Recommended architecture based on Flutter client, documented NestJS-style backend API, AWS Cognito, RDS PostgreSQL, S3 presigned uploads, Bedrock/Polly AI services, Firebase Cloud Messaging, and Socket.IO realtime. AWS IaC was not found in the repository."
+- Keep the layout clean and academic. Use GCP service icons, grouped VPC/subnet boundaries, clear labels, and directional arrows.
+- Add a note box: "Recommended architecture based on Flutter client, documented NestJS-style backend API, Google Cloud Identity Platform / Firebase Auth, RDS PostgreSQL, S3 presigned uploads, Bedrock/Polly AI services, Firebase Cloud Messaging, and Socket.IO realtime. GCP IaC was not found in the repository."
 
 ### Notes
 
-This AWS architecture is realistic for Wanas because the app already expects an AWS-hosted REST backend, Cognito authentication, RDS PostgreSQL, S3 presigned uploads, AI services, push notifications, and realtime communication. EC2 is chosen for backend hosting because the repository documentation and code comments reference an EC2-hosted backend, while the frontend can be hosted simply as a Flutter web build on S3 and CloudFront. The design avoids unnecessary serverless, container, and NoSQL services that are not supported by the current codebase.
+This GCP architecture is realistic for Wanas because the app already expects an GCP-hosted REST backend, Cognito authentication, RDS PostgreSQL, S3 presigned uploads, AI services, push notifications, and realtime communication. EC2 is chosen for backend hosting because the repository documentation and code comments reference an EC2-hosted backend, while the frontend can be hosted simply as a Flutter web build on S3 and CloudFront. The design avoids unnecessary serverless, container, and NoSQL services that are not supported by the current codebase.
 
 ---
 
@@ -549,7 +549,7 @@ Visual style requirements:
 - Use crow's foot notation for cardinality on relationship lines.
 - Keep the diagram clean — do not add extra entities, comments, or decorative elements beyond what is listed.
 - Title: "Wanas — Database Entity Relationship Diagram"
-- Add a small note: "Database: AWS RDS PostgreSQL. Schema managed via SQL migration files."
+- Add a small note: "Database: Google Cloud SQL (PostgreSQL). Schema managed via SQL migration files."
 
 ### Notes
 
@@ -731,7 +731,7 @@ This screen flow is derived from the actual Flutter screen files found under `li
 ### 1. UI/UX Notification System Overhaul
 - **Previous Mechanism:** Custom Overlay entries (`_TopAlertOverlay`) which caused `Ticker` stability issues.
 - **New Mechanism:** Global `ScaffoldMessenger` Snackbars. All system notifications and alerts are now displayed as animated, professional floating popups.
-- **Server Terminology Abstraction:** To improve end-user experience, all technical AWS Cognito terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding AWS complexities from the UI.
+- **Server Terminology Abstraction:** To improve end-user experience, all technical Google Cloud Identity Platform / Firebase Auth terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding GCP complexities from the UI.
 
 ### 2. AI Voice Assistant (Companion) Refactoring
 - **Interaction Flow:** Removed the explicit "Thinking" (Wait state) visual indicator. The AI now seamlessly auto-deduces when the user has finished speaking by utilizing a 2-second voice activity detection timeout (down from 4 seconds).
@@ -742,3 +742,8 @@ This screen flow is derived from the actual Flutter screen files found under `li
 - **Previous Bug:** Family accounts were unable to view the resident's activities because the API request was rigidly scoped to the `residentId`, while activities are often created as facility-wide events.
 - **Resolution:** Modified the backend sync service (`backend_sync_service.dart`) to fetch activities for the Family and Resident roles without appending the `residentId` query parameter, ensuring all relevant facility activities are displayed correctly.
 
+
+### 4. Cloud Infrastructure Migration to GCP
+- **Migration:** The entire backend infrastructure has been migrated from AWS to Google Cloud Platform (GCP).
+- **Services Replaced:** Cognito was replaced with Google Cloud Identity Platform/Firebase Auth, S3 with Google Cloud Storage, RDS with Cloud SQL, and EC2 with Google Compute Engine.
+- **Authentication:** Service account credentials (`google-service-account.json`) are now used for secure backend communication with GCP services.

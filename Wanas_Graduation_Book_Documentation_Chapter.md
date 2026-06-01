@@ -21,11 +21,11 @@ This chapter presents the design and implementation documentation of **Wanas** (
 
 Wanas (Arabic: وَنَس, meaning *companionship*) is a cross-platform mobile application built with Flutter, designed to digitise and unify the management of nursing home facilities. The system serves **six user roles**: Administrator, Nurse, Elderly Resident, Family Member, Social Specialist, and Volunteer — each with a dedicated, role-specific interface.
 
-The platform integrates real-time communication, AI-powered companionship, medication tracking, social assessments, gamified activities, visit scheduling, and data-driven reporting into a single unified system. It is backed by a NestJS REST API deployed on AWS, using PostgreSQL as the primary database, AWS Cognito for identity management, and Firebase Cloud Messaging for push notifications.
+The platform integrates real-time communication, AI-powered companionship, medication tracking, social assessments, gamified activities, visit scheduling, and data-driven reporting into a single unified system. It is backed by a NestJS REST API deployed on GCP, using PostgreSQL as the primary database, Google Cloud Identity Platform / Firebase Auth for identity management, and Firebase Cloud Messaging for push notifications.
 
 The name reflects the system's core philosophy: elderly residents should never feel alone. Every feature — from the AI companion that converses with residents to the voice messages families can send — is designed to foster warmth, connection, and dignity.
 
-> **ملخص:** وَنَس تطبيق هاتف متعدد الأنظمة يُوحّد إدارة دور رعاية المسنين لستة أدوار مستخدم، مدعومًا بواجهة برمجية NestJS على AWS وذكاء اصطناعي ورعاية شاملة في منصة واحدة.
+> **ملخص:** وَنَس تطبيق هاتف متعدد الأنظمة يُوحّد إدارة دور رعاية المسنين لستة أدوار مستخدم، مدعومًا بواجهة برمجية NestJS على GCP وذكاء اصطناعي ورعاية شاملة في منصة واحدة.
 
 ---
 
@@ -40,12 +40,12 @@ Traditional nursing home management relies on fragmented, paper-based or disconn
 | Category | Key Objectives |
 |---|---|
 | **Functional** | Role-specific interfaces for all six roles; full medication lifecycle management; real-time multi-party communication; AI companion; structured social assessment toolkit; gamified resident engagement; emergency SOS system |
-| **Technical** | Clean layered Flutter architecture; full Arabic RTL support; JWT authentication via AWS Cognito; Socket.IO real-time events; Firebase push notifications; AWS S3 file storage; PDF report generation |
+| **Technical** | Clean layered Flutter architecture; full Arabic RTL support; JWT authentication via Google Cloud Identity Platform / Firebase Auth; Socket.IO real-time events; Firebase push notifications; Google Cloud Storage (GCS) file storage; PDF report generation |
 | **Educational** | Demonstrate production-level Flutter development; apply Riverpod state management; integrate AI services; practice software engineering principles (SRP, DRY, separation of concerns) |
 
 ### 4.3.3 Scope
 
-**In scope:** Multi-role mobile app (Android & iOS), complete medication management, real-time communication (chat, voice messages, video calls), AI companion, social assessment tools, volunteer management, visit booking and approval, administrator dashboard with AI alerts, facility configuration, push and local notifications, biometric login, PDF report export, AWS S3 file uploads.
+**In scope:** Multi-role mobile app (Android & iOS), complete medication management, real-time communication (chat, voice messages, video calls), AI companion, social assessment tools, volunteer management, visit booking and approval, administrator dashboard with AI alerts, facility configuration, push and local notifications, biometric login, PDF report export, Google Cloud Storage (GCS) file uploads.
 
 **Out of scope:** Web browser frontend, wearable device integration, HL7/FHIR EHR system integration, online payment gateway, multi-language localisation (English UI), offline-first data sync.
 
@@ -62,10 +62,10 @@ Traditional nursing home management relies on fragmented, paper-based or disconn
 | **Riverpod** | State Management | Reactive state, provider pattern, data binding |
 | **NestJS** | Backend Framework | RESTful API, business logic, module architecture |
 | **PostgreSQL** | Database | Primary relational data store for all entities |
-| **AWS EC2** | Cloud Hosting | Backend server runtime environment |
-| **AWS Cognito** | Authentication | User pools, JWT issuance, role claims |
-| **AWS S3** | Object Storage | Profile photos, documents, media uploads |
-| **AWS Polly** | Speech Synthesis | AI companion text-to-speech voice output |
+| **Google Compute Engine (GCE)** | Cloud Hosting | Backend server runtime environment |
+| **Google Cloud Identity Platform / Firebase Auth** | Authentication | User pools, JWT issuance, role claims |
+| **Google Cloud Storage (GCS)** | Object Storage | Profile photos, documents, media uploads |
+| **Google Cloud Text-to-Speech** | Speech Synthesis | AI companion text-to-speech voice output |
 | **Firebase FCM** | Push Notifications | Device push notification delivery |
 | **Socket.IO** | Real-Time | WebSocket bi-directional event broadcasting |
 | **flutter_secure_storage** | Security | Encrypted JWT token storage (Keystore/Keychain) |
@@ -73,7 +73,7 @@ Traditional nursing home management relies on fragmented, paper-based or disconn
 | **Cairo Font** | Typography | Arabic typeface — 8 weight variants |
 | **Material Design 3** | UI System | Component library, theming, accessibility |
 
-> **ملخص:** يعتمد وَنَس مجموعة تقنيات حديثة تشمل Flutter و NestJS و AWS و Firebase و Socket.IO لتوفير تجربة متكاملة وآمنة وآنية.
+> **ملخص:** يعتمد وَنَس مجموعة تقنيات حديثة تشمل Flutter و NestJS و GCP و Firebase و Socket.IO لتوفير تجربة متكاملة وآمنة وآنية.
 
 ---
 
@@ -84,8 +84,8 @@ Traditional nursing home management relies on fragmented, paper-based or disconn
 Wanas is built on a three-layer client–server architecture:
 
 - **Mobile Client (Flutter):** Handles all user interaction, state management via Riverpod, and communication with the backend via HTTPS and WebSocket. Six independent UI modules serve six user roles.
-- **Backend API (NestJS on AWS EC2):** Exposes a RESTful API at `https://api.helpers-tech.com`. Handles business logic, database operations, S3 coordination, AI orchestration, and real-time event broadcasting via Socket.IO.
-- **Cloud Services Layer (AWS + Firebase):** Managed services — Cognito for identity, S3 for storage, Polly for TTS, and Firebase FCM for push delivery.
+- **Backend API (NestJS on Google Compute Engine (GCE)):** Exposes a RESTful API at `https://api.helpers-tech.com`. Handles business logic, database operations, S3 coordination, AI orchestration, and real-time event broadcasting via Socket.IO.
+- **Cloud Services Layer (GCP + Firebase):** Managed services — Cognito for identity, S3 for storage, Polly for TTS, and Firebase FCM for push delivery.
 
 ### 4.5.2 Application Architecture Diagram
 
@@ -97,7 +97,7 @@ graph TD
         SVC[Service Layer\n35+ classes]
     end
 
-    subgraph NestJS API - AWS EC2
+    subgraph NestJS API - Google Compute Engine (GCE)
         AUTH[Auth / Cognito]
         CORE[Residents · Medications\nNursing · Family · Social\nVolunteers · Admin · AI]
         RT[Socket.IO Gateway]
@@ -105,9 +105,9 @@ graph TD
     end
 
     subgraph Cloud Services
-        COGI[AWS Cognito]
-        S3[Amazon S3]
-        POLLY[AWS Polly]
+        COGI[Google Cloud Identity Platform / Firebase Auth]
+        S3[Google Cloud Storage (GCS)]
+        POLLY[Google Cloud Text-to-Speech]
         FCM[Firebase FCM]
         PG[(PostgreSQL)]
     end
@@ -125,20 +125,20 @@ graph TD
     NOTIF --- FCM
 ```
 
-### 4.5.3 AWS Deployment Architecture
+### 4.5.3 GCP Deployment Architecture
 
 ```mermaid
 graph LR
     MOB[Flutter App\nAndroid / iOS] -->|HTTPS| GW[API Gateway / EC2\nhttps://api.helpers-tech.com]
     GW --> PG[(PostgreSQL\nDatabase)]
-    GW --> S3[Amazon S3\nFile Storage]
-    GW --> COG[AWS Cognito\nUser Pool]
-    GW --> POL[AWS Polly\nTTS]
+    GW --> S3[Google Cloud Storage (GCS)\nFile Storage]
+    GW --> COG[Google Cloud Identity Platform / Firebase Auth\nUser Pool]
+    GW --> POL[Google Cloud Text-to-Speech\nTTS]
     GW --> FCM[Firebase FCM\nPush]
     GW -->|WebSocket| MOB
 ```
 
-> **ملخص:** يتكون النظام من ثلاث طبقات: تطبيق Flutter، وواجهة برمجية NestJS على AWS EC2، وطبقة خدمات سحابية (Cognito، S3، Polly، Firebase). تتواصل الطبقات عبر HTTPS و WebSocket.
+> **ملخص:** يتكون النظام من ثلاث طبقات: تطبيق Flutter، وواجهة برمجية NestJS على Google Compute Engine (GCE)، وطبقة خدمات سحابية (Cognito، S3، Polly، Firebase). تتواصل الطبقات عبر HTTPS و WebSocket.
 
 ---
 
@@ -154,7 +154,7 @@ The Flutter codebase follows a domain-based layered architecture inside the `lib
 | `lib/screens/` | Role-based screen modules: `onboarding/`, `auth/`, `elderly/`, `nurse/`, `family/`, `specialist/`, `volunteer/`, `admin/`, `common/`, `chat/` — 75+ screen files total |
 | `lib/widgets/` | Reusable UI components: AI voice assistant with seamless interaction, SOS button, live data banners, accessibility dialog, bottom nav bar |
 | `lib/theme/app_theme.dart` | Complete design token system: colours, spacing, border radii, shadows, gradients |
-| `lib/config/api_config.dart` | API base URL, AWS Cognito identifiers, request timeout constants |
+| `lib/config/api_config.dart` | API base URL, Google Cloud Identity Platform / Firebase Auth identifiers, request timeout constants |
 
 ---
 
@@ -226,7 +226,7 @@ erDiagram
 
 ## 4.9 API and Authentication Summary
 
-### 4.9.1 Authentication with AWS Cognito
+### 4.9.1 Authentication with Google Cloud Identity Platform / Firebase Auth
 
 Wanas uses a **delegated JWT authentication** model. The Flutter app never communicates with Cognito directly; instead, the NestJS backend acts as a secure proxy:
 
@@ -255,7 +255,7 @@ Wanas uses a **delegated JWT authentication** model. The Flutter app never commu
 | **Notifications** | `/notifications` | In-app notifications, FCM push token management |
 | **Real-Time** | `wss://` (Socket.IO) | Live events: SOS, overdue meds, visit requests, complaint updates |
 
-> **ملخص:** تتواصل طبقة الخدمات في Flutter مع 12 وحدة API عبر HTTPS. المصادقة مُفوَّضة لـ AWS Cognito عبر الخادم. رمز JWT مُخزَّن مشفرًا ويُرفق بكل طلب. يُوفر Socket.IO الأحداث الآنية بنطاق المرفق.
+> **ملخص:** تتواصل طبقة الخدمات في Flutter مع 12 وحدة API عبر HTTPS. المصادقة مُفوَّضة لـ Google Cloud Identity Platform / Firebase Auth عبر الخادم. رمز JWT مُخزَّن مشفرًا ويُرفق بكل طلب. يُوفر Socket.IO الأحداث الآنية بنطاق المرفق.
 
 ---
 
@@ -303,15 +303,15 @@ No automated tests exist in the current codebase. The recommended testing strate
 
 | Component | Technology | Details |
 |---|---|---|
-| Backend host | AWS EC2 | NestJS API; managed with PM2 process manager |
+| Backend host | Google Compute Engine (GCE) | NestJS API; managed with PM2 process manager |
 | Database | PostgreSQL | Schema managed via numbered SQL migration files |
-| File storage | Amazon S3 | Presigned URL upload pattern for all binary assets |
-| Identity | AWS Cognito | User pool: `us-east-1_WQgMPSADf`; region: `us-east-1` |
+| File storage | Google Cloud Storage (GCS) | Presigned URL upload pattern for all binary assets |
+| Identity | Google Cloud Identity Platform / Firebase Auth | User pool: `us-east-1_WQgMPSADf`; region: `us-east-1` |
 | Push notifications | Firebase FCM | Project: `raaya-taptaba-app`; FCM token registered on login |
 | Android release | Google Play | Signed `.aab` with `android/key.properties` keystore |
 | iOS release | App Store Connect | `.ipa` built and uploaded via Xcode / Transporter |
 
-> **ملخص:** الخلفية مُنشَرة على AWS EC2 وتُدار بـ PM2. قاعدة البيانات PostgreSQL مع ملفات ترحيل SQL. التطبيق يُوزَّع عبر Google Play وApp Store. لا توجد اختبارات مُؤتمَتة حاليًا والاستراتيجية الموصى بها موثَّقة للتطوير المستقبلي.
+> **ملخص:** الخلفية مُنشَرة على Google Compute Engine (GCE) وتُدار بـ PM2. قاعدة البيانات PostgreSQL مع ملفات ترحيل SQL. التطبيق يُوزَّع عبر Google Play وApp Store. لا توجد اختبارات مُؤتمَتة حاليًا والاستراتيجية الموصى بها موثَّقة للتطوير المستقبلي.
 
 ---
 
@@ -374,7 +374,7 @@ The team acknowledges the invaluable supervision of **Dr. Nabil El Ghamry** and 
 ### 1. UI/UX Notification System Overhaul
 - **Previous Mechanism:** Custom Overlay entries (`_TopAlertOverlay`) which caused `Ticker` stability issues.
 - **New Mechanism:** Global `ScaffoldMessenger` Snackbars. All system notifications and alerts are now displayed as animated, professional floating popups.
-- **Server Terminology Abstraction:** To improve end-user experience, all technical AWS Cognito terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding AWS complexities from the UI.
+- **Server Terminology Abstraction:** To improve end-user experience, all technical Google Cloud Identity Platform / Firebase Auth terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding GCP complexities from the UI.
 
 ### 2. AI Voice Assistant (Companion) Refactoring
 - **Interaction Flow:** Removed the explicit "Thinking" (Wait state) visual indicator. The AI now seamlessly auto-deduces when the user has finished speaking by utilizing a 2-second voice activity detection timeout (down from 4 seconds).
@@ -385,3 +385,8 @@ The team acknowledges the invaluable supervision of **Dr. Nabil El Ghamry** and 
 - **Previous Bug:** Family accounts were unable to view the resident's activities because the API request was rigidly scoped to the `residentId`, while activities are often created as facility-wide events.
 - **Resolution:** Modified the backend sync service (`backend_sync_service.dart`) to fetch activities for the Family and Resident roles without appending the `residentId` query parameter, ensuring all relevant facility activities are displayed correctly.
 
+
+### 4. Cloud Infrastructure Migration to GCP
+- **Migration:** The entire backend infrastructure has been migrated from AWS to Google Cloud Platform (GCP).
+- **Services Replaced:** Cognito was replaced with Google Cloud Identity Platform/Firebase Auth, S3 with Google Cloud Storage, RDS with Cloud SQL, and EC2 with Google Compute Engine.
+- **Authentication:** Service account credentials (`google-service-account.json`) are now used for secure backend communication with GCP services.

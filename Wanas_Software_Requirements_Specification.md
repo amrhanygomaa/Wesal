@@ -106,13 +106,13 @@ The specification is based on direct analysis of the current codebase, including
 
 Wanas is a cross-platform Flutter application for elderly care facilities. It provides role-based interfaces for elderly residents, family members, nurses, social specialists, administrators, and volunteers. The system supports resident management, medication tracking, care tasks, family communication, visit management, social assessments, volunteer coordination, notifications, AI-based assistance, emergency SOS alerts, media/document upload, reporting, and accessibility settings.
 
-The application communicates with an external AWS-hosted backend API at `https://api.helpers-tech.com`. Authentication uses AWS Cognito and JSON Web Tokens (JWT). Data persistence is documented as AWS RDS PostgreSQL. Media and documents are uploaded through backend-generated presigned S3 URLs. Push notifications use Firebase Cloud Messaging, and realtime events use Socket.IO.
+The application communicates with an external GCP-hosted backend API at `https://api.helpers-tech.com`. Authentication uses Google Cloud Identity Platform / Firebase Auth and JSON Web Tokens (JWT). Data persistence is documented as Google Cloud SQL (PostgreSQL). Media and documents are uploaded through backend-generated presigned S3 URLs. Push notifications use Firebase Cloud Messaging, and realtime events use Socket.IO.
 
 #### العربية
 
 ونس هو تطبيق متعدد المنصات مبني باستخدام Flutter لخدمة دور رعاية المسنين. يوفر التطبيق واجهات مخصصة حسب الدور لكل من المسن، وعضو الأسرة، والممرض، والأخصائي الاجتماعي، والمدير، والمتطوع. يدعم النظام إدارة المقيمين، وتتبع الأدوية، ومهام الرعاية، وتواصل الأسرة، وإدارة الزيارات، والتقييمات الاجتماعية، وتنسيق المتطوعين، والتنبيهات، والمساعدة المعتمدة على الذكاء الاصطناعي، ونداءات الطوارئ، ورفع الملفات والوسائط، والتقارير، وإعدادات سهولة الوصول.
 
-يتصل التطبيق بواجهة خلفية خارجية مستضافة على AWS بعنوان `https://api.helpers-tech.com`. تعتمد المصادقة على AWS Cognito وJWT. توثق البيانات على أنها مخزنة في AWS RDS PostgreSQL، بينما ترفع الوسائط والملفات من خلال روابط S3 مؤقتة يتم إنشاؤها من الخادم. تستخدم الإشعارات Firebase Cloud Messaging، وتستخدم الأحداث اللحظية Socket.IO.
+يتصل التطبيق بواجهة خلفية خارجية مستضافة على GCP بعنوان `https://api.helpers-tech.com`. تعتمد المصادقة على Google Cloud Identity Platform / Firebase Auth وJWT. توثق البيانات على أنها مخزنة في Google Cloud SQL (PostgreSQL)، بينما ترفع الوسائط والملفات من خلال روابط S3 مؤقتة يتم إنشاؤها من الخادم. تستخدم الإشعارات Firebase Cloud Messaging، وتستخدم الأحداث اللحظية Socket.IO.
 
 ### 1.3 Intended Audience
 
@@ -147,9 +147,9 @@ This SRS is intended for:
 | Flutter | Cross-platform UI framework used for the client app |
 | Riverpod | Flutter state management framework used by the app |
 | JWT | JSON Web Token used for authenticated API requests |
-| AWS Cognito | Authentication and user pool service used by the backend |
-| AWS RDS | Relational database service documented as PostgreSQL storage |
-| AWS S3 | Object storage used through presigned upload URLs |
+| Google Cloud Identity Platform / Firebase Auth | Authentication and user pool service used by the backend |
+| Google Cloud SQL | Relational database service documented as PostgreSQL storage |
+| Google Cloud Storage (GCS) | Object storage used through presigned upload URLs |
 | FCM | Firebase Cloud Messaging for mobile push notifications |
 | API | Application Programming Interface |
 | SOS | Emergency alert flow for residents or staff |
@@ -191,7 +191,7 @@ The document begins with a system-level description, then defines user roles, fu
 
 #### English
 
-Wanas is a mobile-first care management application with a Flutter frontend and an external documented AWS backend. The repository contains the client application and its service integrations. It does not contain the backend implementation source. The backend surface is documented through contract and route files.
+Wanas is a mobile-first care management application with a Flutter frontend and an external documented GCP backend. The repository contains the client application and its service integrations. It does not contain the backend implementation source. The backend surface is documented through contract and route files.
 
 The client is organized into:
 
@@ -206,7 +206,7 @@ The client is organized into:
 
 #### العربية
 
-ونس هو تطبيق لإدارة الرعاية يعتمد أساسا على الهاتف المحمول، ويتكون من واجهة Flutter وخلفية AWS موثقة خارجية. يحتوي المستودع على تطبيق العميل وتكاملاته الخدمية، ولا يحتوي على كود الخادم الخلفي نفسه. تم توثيق سطح الخادم الخلفي من خلال ملفات العقود والمسارات.
+ونس هو تطبيق لإدارة الرعاية يعتمد أساسا على الهاتف المحمول، ويتكون من واجهة Flutter وخلفية GCP موثقة خارجية. يحتوي المستودع على تطبيق العميل وتكاملاته الخدمية، ولا يحتوي على كود الخادم الخلفي نفسه. تم توثيق سطح الخادم الخلفي من خلال ملفات العقود والمسارات.
 
 ينظم العميل إلى شاشات حسب الأدوار، ومكونات واجهة قابلة لإعادة الاستخدام، وخدمات API ومصادقة ومزامنة وذكاء اصطناعي وإشعارات ورفع ملفات، ومزود حالة مركزي، ونماذج بيانات، وملفات إعداد، وأصول بصرية، ومجلدات خاصة بالمنصات المختلفة.
 
@@ -249,7 +249,7 @@ The major system functions include:
 
 The application is built with Flutter and Dart SDK `>=3.0.0 <4.0.0`. It targets Android, iOS, web, and desktop platforms through Flutter project folders. The Android package namespace is `com.raaya.taptaba`. The app uses Arabic RTL layout, Material 3, Cairo font assets, and portrait orientation in the main app.
 
-The production API base URL is configured as `https://api.helpers-tech.com` with compile-time override support through `API_BASE_URL`. AWS Cognito is configured in `us-east-1` with a documented user pool and app client. Firebase is configured for Android push notifications.
+The production API base URL is configured as `https://api.helpers-tech.com` with compile-time override support through `API_BASE_URL`. Google Cloud Identity Platform / Firebase Auth is configured in `us-east-1` with a documented user pool and app client. Firebase is configured for Android push notifications.
 
 #### العربية
 
@@ -272,11 +272,11 @@ The production API base URL is configured as `https://api.helpers-tech.com` with
 
 #### English
 
-The system assumes that the external backend API is reachable, Cognito is configured, JWT tokens are valid, AWS RDS and S3 are available, Firebase push configuration is valid for mobile builds, and the user's device grants required permissions such as notifications, camera, contacts, microphone, biometrics, and media access.
+The system assumes that the external backend API is reachable, Cognito is configured, JWT tokens are valid, Google Cloud SQL and S3 are available, Firebase push configuration is valid for mobile builds, and the user's device grants required permissions such as notifications, camera, contacts, microphone, biometrics, and media access.
 
 #### العربية
 
-يفترض النظام أن الخادم الخلفي الخارجي متاح، وأن Cognito مضبوط، وأن رموز JWT صالحة، وأن خدمات AWS RDS وS3 متاحة، وأن إعدادات Firebase صحيحة للبناء المحمول، وأن جهاز المستخدم يمنح الأذونات المطلوبة مثل الإشعارات والكاميرا وجهات الاتصال والميكروفون والبصمة والوصول للوسائط.
+يفترض النظام أن الخادم الخلفي الخارجي متاح، وأن Cognito مضبوط، وأن رموز JWT صالحة، وأن خدمات Google Cloud SQL وS3 متاحة، وأن إعدادات Firebase صحيحة للبناء المحمول، وأن جهاز المستخدم يمنح الأذونات المطلوبة مثل الإشعارات والكاميرا وجهات الاتصال والميكروفون والبصمة والوصول للوسائط.
 
 ---
 
@@ -284,18 +284,18 @@ The system assumes that the external backend API is reachable, Cognito is config
 
 ### English
 
-Wanas consists of a Flutter client application that communicates with a documented external AWS backend. Users interact with role-specific screens. The client uses `ApiClient` to call REST endpoints and attaches Bearer tokens for authenticated requests. Authentication is performed through backend auth endpoints and AWS Cognito. Backend data is documented as stored in AWS RDS PostgreSQL. Media and documents are uploaded to AWS S3 through presigned URL workflows. Realtime events use Socket.IO, while mobile push notifications use Firebase Cloud Messaging.
+Wanas consists of a Flutter client application that communicates with a documented external GCP backend. Users interact with role-specific screens. The client uses `ApiClient` to call REST endpoints and attaches Bearer tokens for authenticated requests. Authentication is performed through backend auth endpoints and Google Cloud Identity Platform / Firebase Auth. Backend data is documented as stored in Google Cloud SQL (PostgreSQL). Media and documents are uploaded to Google Cloud Storage (GCS) through presigned URL workflows. Realtime events use Socket.IO, while mobile push notifications use Firebase Cloud Messaging.
 
 ```mermaid
 flowchart LR
     Users[Users by Role] --> Flutter[Flutter Wanas App]
     Flutter --> State[AppRiverpod State]
     State --> Services[Flutter Service Layer]
-    Services --> API[External AWS Backend API]
-    API --> Cognito[AWS Cognito]
-    API --> RDS[(AWS RDS PostgreSQL)]
-    API --> S3[(AWS S3 Uploads)]
-    API --> AI[AWS Bedrock / Speech Services]
+    Services --> API[External GCP Backend API]
+    API --> Cognito[Google Cloud Identity Platform / Firebase Auth]
+    API --> RDS[(Google Cloud SQL (PostgreSQL))]
+    API --> S3[(Google Cloud Storage (GCS) Uploads)]
+    API --> AI[GCP Bedrock / Speech Services]
     API --> FCM[Firebase Cloud Messaging]
     API --> RT[Socket.IO Realtime]
     RT --> Flutter
@@ -304,7 +304,7 @@ flowchart LR
 
 ### العربية
 
-يتكون نظام ونس من تطبيق Flutter يتصل بخادم AWS خارجي موثق. يتعامل المستخدمون مع شاشات مخصصة حسب الدور. يستخدم التطبيق `ApiClient` لاستدعاء الواجهات البرمجية وإرفاق رموز Bearer في الطلبات المحمية. تتم المصادقة عبر واجهات الخادم وخدمة AWS Cognito. توثق البيانات على أنها مخزنة في PostgreSQL على AWS RDS، بينما ترفع الملفات والوسائط إلى S3 عبر روابط مؤقتة. تستخدم الأحداث اللحظية Socket.IO، وتستخدم الإشعارات Firebase Cloud Messaging.
+يتكون نظام ونس من تطبيق Flutter يتصل بخادم GCP خارجي موثق. يتعامل المستخدمون مع شاشات مخصصة حسب الدور. يستخدم التطبيق `ApiClient` لاستدعاء الواجهات البرمجية وإرفاق رموز Bearer في الطلبات المحمية. تتم المصادقة عبر واجهات الخادم وخدمة Google Cloud Identity Platform / Firebase Auth. توثق البيانات على أنها مخزنة في PostgreSQL على Google Cloud SQL، بينما ترفع الملفات والوسائط إلى S3 عبر روابط مؤقتة. تستخدم الأحداث اللحظية Socket.IO، وتستخدم الإشعارات Firebase Cloud Messaging.
 
 ---
 
@@ -1056,7 +1056,7 @@ The following functional requirements are extracted from implemented screens, se
 
 #### NFR-017 - File Upload Safety
 
-- **Description:** File uploads shall use server-generated presigned URLs rather than embedding AWS credentials in the client.
+- **Description:** File uploads shall use server-generated presigned URLs rather than embedding GCP credentials in the client.
 - **Measurement or acceptance criteria:** S3 helper uses presigned URLs returned by backend.
 - **Priority:** High
 
@@ -1090,9 +1090,9 @@ The system exposes Flutter screens grouped by role. All screens use Arabic RTL d
 | Interface | Description | Related files |
 |---|---|---|
 | Backend REST API | External API at `https://api.helpers-tech.com`. | `api_client.dart`, service classes, `docs/backend-contract.md` |
-| AWS Cognito | Authentication, JWT claims, refresh token flow. | `auth_service.dart`, `api_config.dart` |
-| AWS S3 | Presigned upload target for media/documents/images. | `s3_upload_helper.dart`, upload services |
-| AWS Bedrock / AI backend | AI chat, recommendations, predictive alerts, speech and summaries. | `ai_service.dart` |
+| Google Cloud Identity Platform / Firebase Auth | Authentication, JWT claims, refresh token flow. | `auth_service.dart`, `api_config.dart` |
+| Google Cloud Storage (GCS) | Presigned upload target for media/documents/images. | `s3_upload_helper.dart`, upload services |
+| GCP Bedrock / AI backend | AI chat, recommendations, predictive alerts, speech and summaries. | `ai_service.dart` |
 | Firebase Cloud Messaging | Push notifications on Android/iOS. | `push_notification_service.dart`, `firebase_options.dart` |
 | Socket.IO | Realtime live events. | `realtime_service.dart` |
 | Device APIs | Contacts, camera/gallery, media, microphone, local auth, notifications, TTS/STT. | `pubspec.yaml`, provider/widgets/services |
@@ -1113,7 +1113,7 @@ The system exposes Flutter screens grouped by role. All screens use Arabic RTL d
 | Interface | Protocol |
 |---|---|
 | Backend REST API | HTTPS JSON |
-| Cognito refresh | HTTPS AWS Cognito API |
+| Cognito refresh | HTTPS Google Cloud Identity Platform / Firebase Auth API |
 | S3 presigned uploads | HTTPS PUT |
 | Realtime events | Socket.IO WebSocket/polling |
 | Push notifications | Firebase Cloud Messaging |
@@ -1893,7 +1893,7 @@ The backend source code is not included in the current workspace. API requiremen
 
 ### English
 
-The actual database schema files are not present in the current workspace. Existing documentation identifies AWS RDS PostgreSQL as the database and mentions migrations in backend gap analysis. Therefore, this section documents logical database requirements based on documented backend domains, not verified physical table definitions.
+The actual database schema files are not present in the current workspace. Existing documentation identifies Google Cloud SQL (PostgreSQL) as the database and mentions migrations in backend gap analysis. Therefore, this section documents logical database requirements based on documented backend domains, not verified physical table definitions.
 
 
 
@@ -2110,7 +2110,7 @@ The actual database schema files are not present in the current workspace. Exist
 
 ### العربية
 
-لم يتم العثور على ملفات مخطط قاعدة البيانات الفعلية داخل مساحة العمل الحالية. تشير الوثائق إلى استخدام PostgreSQL على AWS RDS ووجود ترحيلات في مستودع الخلفية غير الموجود هنا. لذلك توثق هذه الفقرة الكيانات المنطقية المتوقعة من الكود والوثائق، وليس التعريفات الفيزيائية المؤكدة للجداول.
+لم يتم العثور على ملفات مخطط قاعدة البيانات الفعلية داخل مساحة العمل الحالية. تشير الوثائق إلى استخدام PostgreSQL على Google Cloud SQL ووجود ترحيلات في مستودع الخلفية غير الموجود هنا. لذلك توثق هذه الفقرة الكيانات المنطقية المتوقعة من الكود والوثائق، وليس التعريفات الفيزيائية المؤكدة للجداول.
 
 ---
 
@@ -2173,7 +2173,7 @@ The actual database schema files are not present in the current workspace. Exist
 
 ### العربية
 
-تعتمد المصادقة على الخادم الخلفي وAWS Cognito. يرسل التطبيق بيانات الدخول إلى الخادم، ويتلقى رموز JWT ورمز التحديث، ويخزنها في التخزين الآمن. تضيف طبقة `ApiClient` رمز Bearer إلى الطلبات المحمية. تتم استعادة الجلسات من التخزين الآمن، ويتم تحديث الجلسة عبر Cognito عند الحاجة. تتحول الأدوار إلى مسميات عربية داخل التطبيق لاستخدامها في التوجيه. تسجيل المدير الأول يتطلب سرا إعداديا.
+تعتمد المصادقة على الخادم الخلفي وGoogle Cloud Identity Platform / Firebase Auth. يرسل التطبيق بيانات الدخول إلى الخادم، ويتلقى رموز JWT ورمز التحديث، ويخزنها في التخزين الآمن. تضيف طبقة `ApiClient` رمز Bearer إلى الطلبات المحمية. تتم استعادة الجلسات من التخزين الآمن، ويتم تحديث الجلسة عبر Cognito عند الحاجة. تتحول الأدوار إلى مسميات عربية داخل التطبيق لاستخدامها في التوجيه. تسجيل المدير الأول يتطلب سرا إعداديا.
 
 ---
 
@@ -2484,9 +2484,9 @@ The actual database schema files are not present in the current workspace. Exist
 - **Description:** Client shall upload only to backend-issued presigned URLs and confirm uploads through backend.
 - **Priority:** High
 
-#### SEC-007 - No AWS secrets in client
+#### SEC-007 - No GCP secrets in client
 
-- **Description:** AWS credentials and backend secrets shall not be stored in Flutter client code.
+- **Description:** GCP credentials and backend secrets shall not be stored in Flutter client code.
 - **Priority:** High
 
 #### SEC-008 - Input validation
@@ -2522,7 +2522,7 @@ The actual database schema files are not present in the current workspace. Exist
 
 ### العربية
 
-تركز متطلبات الأمان على تخزين الرموز بأمان، واستخدام HTTPS، وإرفاق JWT في الطلبات المحمية، وتطبيق التفويض حسب الدور والمرفق والمقيم، وحماية سر تسجيل المدير، واستخدام روابط S3 المؤقتة، وعدم وضع أسرار AWS داخل العميل، والتحقق من المدخلات، ورسائل الخطأ الآمنة، وإدارة رموز Firebase، واستخدام البصمة لاستعادة جلسة محفوظة فقط، ومراجعة الاعتماديات، وحماية أسرار توقيع الإصدارات.
+تركز متطلبات الأمان على تخزين الرموز بأمان، واستخدام HTTPS، وإرفاق JWT في الطلبات المحمية، وتطبيق التفويض حسب الدور والمرفق والمقيم، وحماية سر تسجيل المدير، واستخدام روابط S3 المؤقتة، وعدم وضع أسرار GCP داخل العميل، والتحقق من المدخلات، ورسائل الخطأ الآمنة، وإدارة رموز Firebase، واستخدام البصمة لاستعادة جلسة محفوظة فقط، ومراجعة الاعتماديات، وحماية أسرار توقيع الإصدارات.
 
 ---
 
@@ -2853,10 +2853,10 @@ The actual database schema files are not present in the current workspace. Exist
 | AD-001 | Users have valid accounts created through backend/Cognito flows. |
 | AD-002 | Internet connectivity is required for live backend data. |
 | AD-003 | `https://api.helpers-tech.com` or configured `API_BASE_URL` is reachable. |
-| AD-004 | AWS Cognito values in `ApiConfig` match the deployed backend/user pool. |
+| AD-004 | Google Cloud Identity Platform / Firebase Auth values in `ApiConfig` match the deployed backend/user pool. |
 | AD-005 | Backend validates JWT tokens and enforces role/facility scope. |
-| AD-006 | AWS RDS PostgreSQL stores business data. |
-| AD-007 | AWS S3 stores media and documents through presigned URLs. |
+| AD-006 | Google Cloud SQL (PostgreSQL) stores business data. |
+| AD-007 | Google Cloud Storage (GCS) stores media and documents through presigned URLs. |
 | AD-008 | Firebase configuration is valid for Android push notifications. |
 | AD-009 | Device permissions are granted when needed. |
 | AD-010 | Backend AI endpoints are configured for Bedrock/speech services where used. |
@@ -2972,7 +2972,7 @@ The following requirements are recommended future enhancements. They should not 
 
 #### FTR-014 - Infrastructure as code
 
-- **Description:** Add Terraform/CDK/CloudFormation for AWS resources.
+- **Description:** Add Terraform/CDK/CloudFormation for GCP resources.
 - **Rationale:** Make deployment repeatable and auditable.
 
 #### FTR-015 - Disaster recovery plan
@@ -3006,7 +3006,7 @@ The following requirements are recommended future enhancements. They should not 
 | Acronym | Full form |
 |---|---|
 | API | Application Programming Interface |
-| AWS | Amazon Web Services |
+| GCP | Amazon Web Services |
 | DOCX | Microsoft Word Open XML Document |
 | FCM | Firebase Cloud Messaging |
 | JWT | JSON Web Token |
@@ -3083,7 +3083,7 @@ The following requirements are recommended future enhancements. They should not 
 - Physical database schema files were not found in the current workspace.
 - Some backend endpoints are documented as added in backend patches and may require deployment verification.
 - Chat media support is not treated as implemented for the messages backend because documented request support is text-only.
-- Full AWS infrastructure deployment files were not found in the repository.
+- Full GCP infrastructure deployment files were not found in the repository.
 
 ### العربية
 
@@ -3099,7 +3099,7 @@ The following requirements are recommended future enhancements. They should not 
 ### 1. UI/UX Notification System Overhaul
 - **Previous Mechanism:** Custom Overlay entries (`_TopAlertOverlay`) which caused `Ticker` stability issues.
 - **New Mechanism:** Global `ScaffoldMessenger` Snackbars. All system notifications and alerts are now displayed as animated, professional floating popups.
-- **Server Terminology Abstraction:** To improve end-user experience, all technical AWS Cognito terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding AWS complexities from the UI.
+- **Server Terminology Abstraction:** To improve end-user experience, all technical Google Cloud Identity Platform / Firebase Auth terminology has been abstracted. Any backend authentication or saving alerts now refer to the system simply as the "Server" (السيرفر), hiding GCP complexities from the UI.
 
 ### 2. AI Voice Assistant (Companion) Refactoring
 - **Interaction Flow:** Removed the explicit "Thinking" (Wait state) visual indicator. The AI now seamlessly auto-deduces when the user has finished speaking by utilizing a 2-second voice activity detection timeout (down from 4 seconds).
@@ -3110,3 +3110,8 @@ The following requirements are recommended future enhancements. They should not 
 - **Previous Bug:** Family accounts were unable to view the resident's activities because the API request was rigidly scoped to the `residentId`, while activities are often created as facility-wide events.
 - **Resolution:** Modified the backend sync service (`backend_sync_service.dart`) to fetch activities for the Family and Resident roles without appending the `residentId` query parameter, ensuring all relevant facility activities are displayed correctly.
 
+
+### 4. Cloud Infrastructure Migration to GCP
+- **Migration:** The entire backend infrastructure has been migrated from AWS to Google Cloud Platform (GCP).
+- **Services Replaced:** Cognito was replaced with Google Cloud Identity Platform/Firebase Auth, S3 with Google Cloud Storage, RDS with Cloud SQL, and EC2 with Google Compute Engine.
+- **Authentication:** Service account credentials (`google-service-account.json`) are now used for secure backend communication with GCP services.
