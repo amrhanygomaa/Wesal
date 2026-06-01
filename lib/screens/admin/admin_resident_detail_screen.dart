@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/app_riverpod.dart';
 import '../../models/app_models.dart';
+import '../../services/ai_media_service.dart';
 import '../../services/backend_mutation_service.dart';
 import '../../widgets/taptaba_scaffold.dart';
 
@@ -21,7 +23,6 @@ class _AdminResidentDetailScreenState
   late TabController _tabController;
   bool _isEditMode = false;
   bool _isUploading = false;
-  String? _pendingFamilyEmail;
 
   @override
   void initState() {
@@ -412,18 +413,86 @@ class _AdminResidentDetailScreenState
   }
 
   Widget _buildSocialInfo(Resident r) {
+    final appData = ref.watch(appRiverpod);
+    final resident =
+        appData.residentFiles.where((rf) => rf.id == r.id).firstOrNull;
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _buildInfoCard('التاريخ الاجتماعي والنشاطات', [
-          _infoRow('المهنة السابقة', r.previousProfession,
-              Icons.work_outline_rounded),
-          _infoRow('الهوايات والنشاطات', r.hobbies.join('، '),
-              Icons.interests_outlined),
-          _infoRow('الحالة الاجتماعية', r.socialStatus,
-              Icons.family_restroom_rounded),
-        ]),
+        _buildDirectEditCard(
+          title: 'التاريخ الاجتماعي والنشاطات',
+          onEdit: resident != null
+              ? () => _showSocialHistoryForm(resident)
+              : null,
+          children: [
+            _infoRow('المهنة السابقة',
+                resident?.previousProfession ?? r.previousProfession,
+                Icons.work_outline_rounded),
+            _infoRow('الهوايات والنشاطات',
+                (resident?.hobbies ?? r.hobbies).join('، '),
+                Icons.interests_outlined),
+            _infoRow('الحالة الاجتماعية',
+                resident?.socialStatus ?? r.socialStatus,
+                Icons.family_restroom_rounded),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildDirectEditCard(
+      {required String title,
+      required List<Widget> children,
+      VoidCallback? onEdit}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFf1f5f9)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 15,
+              offset: const Offset(0, 5))
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0369a1),
+                        fontFamily: 'Outfit')),
+                if (onEdit != null)
+                  GestureDetector(
+                    onTap: onEdit,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.edit_rounded,
+                          size: 16, color: Color(0xFF0369a1)),
+                    ),
+                  ),
+              ],
+            ),
+            const Divider(
+                height: 25, color: Color(0xFFf1f5f9), thickness: 1.5),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 
@@ -431,91 +500,295 @@ class _AdminResidentDetailScreenState
     final appData = ref.watch(appRiverpod);
     final residentFile =
         appData.residentFiles.where((rf) => rf.id == r.id).firstOrNull;
-    final linkedEmail = _pendingFamilyEmail ?? residentFile?.familyEmail;
-    final isPending = _pendingFamilyEmail != null;
+    final members = residentFile?.familyMembers ?? [];
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        _buildInfoCard('إدارة ربط العائلة', [
-          const Text(
-              'ربط المقيم بحساب أحد أفراد العائلة ليتمكن من متابعة التقارير اليومية والأدوية.',
-              style: TextStyle(fontSize: 12, color: Color(0xFF64748b))),
-          const SizedBox(height: 20),
-          if (linkedEmail != null && linkedEmail.isNotEmpty) ...[
-            _infoRow('البريد المرتبط', linkedEmail,
-                Icons.alternate_email_rounded,
-                valColor: const Color(0xFF0ea5e9)),
-            const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isPending
-                    ? const Color(0xFFFFF7ED)
-                    : const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isPending
-                      ? const Color(0xFFFDBA74)
-                      : const Color(0xFF6EE7B7),
-                ),
-              ),
-              child: Row(
+        // ─── Header card ──────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                  color: const Color(0xFF0369a1).withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Icon(
-                    isPending
-                        ? Icons.hourglass_top_rounded
-                        : Icons.verified_rounded,
-                    size: 16,
-                    color: isPending
-                        ? const Color(0xFFF97316)
-                        : const Color(0xFF059669),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isPending
-                        ? 'البريد الإلكتروني قيد التحقق'
-                        : 'البريد الإلكتروني مرتبط',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isPending
-                          ? const Color(0xFFF97316)
-                          : const Color(0xFF059669),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    child: const Icon(Icons.family_restroom_rounded,
+                        color: Color(0xFF0ea5e9), size: 20),
                   ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text('إدارة أفراد العائلة',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A))),
+                  ),
+                  _buildAddMemberButton(r.id),
                 ],
               ),
-            ),
-          ] else
-            _infoRow('البريد المرتبط', 'لا يوجد بريد مرتبط حالياً',
-                Icons.alternate_email_rounded,
-                valColor: const Color(0xFF94a3b8)),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showLinkFamilyDialog(r.id),
-              icon: const Icon(Icons.link_rounded, size: 18),
-              label: Text(linkedEmail != null && linkedEmail.isNotEmpty
-                  ? 'تغيير البريد المرتبط'
-                  : 'ربط فرد من العائلة'),
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0ea5e9),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-            ),
+              const SizedBox(height: 8),
+              const Text(
+                'ربط أفراد العائلة بحساباتهم ليتمكنوا من متابعة التقارير اليومية والأدوية.',
+                style: TextStyle(fontSize: 12, color: Color(0xFF64748b)),
+              ),
+            ],
           ),
-        ]),
+        ),
+        const SizedBox(height: 16),
+
+        // ─── Members list ─────────────────────────────────────────────
+        if (members.isEmpty)
+          _buildEmptyFamilyState(r.id)
+        else
+          ...members.map((m) => _buildFamilyMemberCard(m, r.id)),
       ],
     );
   }
 
-  void _showLinkFamilyDialog(String residentId) {
-    final emailController = TextEditingController();
+  Widget _buildAddMemberButton(String residentId) {
+    return GestureDetector(
+      onTap: () => _showAddFamilyMemberSheet(residentId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0ea5e9),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.person_add_rounded, color: Colors.white, size: 15),
+            SizedBox(width: 5),
+            Text('إضافة',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyFamilyState(String residentId) {
+    return GestureDetector(
+      onTap: () => _showAddFamilyMemberSheet(residentId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: const Color(0xFFE2E8F0), style: BorderStyle.solid),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.group_add_rounded,
+                  color: Color(0xFF0ea5e9), size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text('لا يوجد أفراد عائلة مرتبطين',
+                style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF334155))),
+            const SizedBox(height: 6),
+            const Text('اضغط لإضافة فرد من العائلة وربطه بهذا المقيم',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: Color(0xFF94a3b8))),
+            const SizedBox(height: 16),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0ea5e9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_add_rounded,
+                      color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text('إضافة فرد من العائلة',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFamilyMemberCard(FamilyMember member, String residentId) {
+    final hasEmail = member.userId != null && member.userId!.isNotEmpty;
+    final email = member.userId;
+    // status: verified if userId (cognito sub) is populated
+    final isLinked = hasEmail;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                member.name.isNotEmpty ? member.name[0] : '؟',
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0369a1)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(member.name,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A))),
+                const SizedBox(height: 2),
+                Text(member.relation,
+                    style: const TextStyle(
+                        fontSize: 12, color: Color(0xFF64748b))),
+                if (email != null && email.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isLinked
+                              ? const Color(0xFFECFDF5)
+                              : const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isLinked
+                                ? const Color(0xFF6EE7B7)
+                                : const Color(0xFFFDBA74),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isLinked
+                                  ? Icons.verified_rounded
+                                  : Icons.hourglass_top_rounded,
+                              size: 11,
+                              color: isLinked
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFFF97316),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isLinked ? 'مرتبط' : 'قيد التحقق',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isLinked
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFF97316),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          // Action buttons
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (email == null || email.isEmpty)
+                IconButton(
+                  onPressed: () =>
+                      _showSendInviteSheet(residentId, member),
+                  icon: const Icon(Icons.send_rounded,
+                      size: 18, color: Color(0xFF0ea5e9)),
+                  tooltip: 'إرسال دعوة',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: () =>
+                    _showDeleteFamilyMemberDialog(member),
+                icon: const Icon(Icons.delete_outline_rounded,
+                    size: 18, color: Color(0xFFEF4444)),
+                tooltip: 'حذف',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddFamilyMemberSheet(String residentId) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final relationCtrl = TextEditingController();
     bool saving = false;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -528,45 +801,51 @@ class _AdminResidentDetailScreenState
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius:
-                  BorderRadius.vertical(top: Radius.circular(32)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ربط فرد من العائلة',
-                    style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text(
-                    'أدخل البريد الإلكتروني لفرد العائلة. سيصله بريد تأكيد للتحقق من الربط.',
-                    style: TextStyle(
-                        fontSize: 13, color: Color(0xFF64748b))),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: emailController,
-                  textAlign: TextAlign.left,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: InputDecoration(
-                    hintText: 'example@family.com',
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0))),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide:
-                            const BorderSide(color: Color(0xFFE2E8F0))),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.person_add_rounded,
+                          color: Color(0xFF0ea5e9), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('إضافة فرد من العائلة',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold)),
+                  ],
                 ),
+                const SizedBox(height: 6),
+                const Text(
+                    'أدخل بيانات فرد العائلة. سيصله بريد دعوة للتحقق والربط بحساب المقيم.',
+                    style:
+                        TextStyle(fontSize: 12, color: Color(0xFF64748b))),
+                const SizedBox(height: 20),
+                _sheetField('الاسم الكامل', nameCtrl,
+                    icon: Icons.person_outline_rounded),
+                const SizedBox(height: 12),
+                _sheetField('صلة القرابة (مثال: ابن، أخت)',
+                    relationCtrl,
+                    icon: Icons.people_outline_rounded),
+                const SizedBox(height: 12),
+                _sheetField('البريد الإلكتروني (للدعوة)', emailCtrl,
+                    icon: Icons.alternate_email_rounded,
+                    keyboard: TextInputType.emailAddress,
+                    ltr: true),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 50,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0ea5e9),
                         foregroundColor: Colors.white,
@@ -575,12 +854,23 @@ class _AdminResidentDetailScreenState
                     onPressed: saving
                         ? null
                         : () async {
-                            final email = emailController.text.trim();
-                            if (email.isEmpty || !email.contains('@')) {
+                            final name = nameCtrl.text.trim();
+                            final email = emailCtrl.text.trim();
+                            final relation =
+                                relationCtrl.text.trim();
+                            if (name.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                      content:
+                                          Text('أدخل الاسم الكامل')));
+                              return;
+                            }
+                            if (email.isNotEmpty &&
+                                !email.contains('@')) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                   const SnackBar(
                                       content: Text(
-                                          'أدخل بريداً إلكترونياً صحيحاً')));
+                                          'أدخل بريداً إلكترونياً صحيحاً أو اتركه فارغاً')));
                               return;
                             }
                             setSheetState(() => saving = true);
@@ -588,18 +878,23 @@ class _AdminResidentDetailScreenState
                               await BackendMutationService.instance
                                   .createFamilyMemberForEmail(
                                 residentId: residentId,
-                                email: email,
+                                email: email.isNotEmpty ? email : null,
+                                fullName: name,
+                                relationship: relation.isNotEmpty
+                                    ? relation
+                                    : 'عائلة',
                               );
                               if (ctx.mounted) Navigator.pop(ctx);
                               if (mounted) {
-                                setState(
-                                    () => _pendingFamilyEmail = email);
+                                ref.read(appRiverpod).syncBackendData();
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'تم إرسال بريد التحقق بنجاح. البريد الإلكتروني قيد التحقق.'),
-                                      backgroundColor:
-                                          Color(0xFF0ea5e9)),
+                                  SnackBar(
+                                    content: Text(email.isNotEmpty
+                                        ? 'تمت الإضافة وتم إرسال بريد الدعوة إلى $email'
+                                        : 'تمت إضافة $name بنجاح'),
+                                    backgroundColor:
+                                        const Color(0xFF0ea5e9),
+                                  ),
                                 );
                               }
                             } catch (e) {
@@ -612,20 +907,227 @@ class _AdminResidentDetailScreenState
                               }
                             }
                           },
-                    child: saving
+                    icon: saving
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(
                                 color: Colors.white, strokeWidth: 2))
-                        : const Text('إرسال بريد التحقق',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label: Text(saving
+                        ? 'جاري الإضافة...'
+                        : 'إضافة وإرسال الدعوة'),
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showSendInviteSheet(String residentId, FamilyMember member) {
+    final emailCtrl = TextEditingController();
+    bool saving = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Padding(
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.mail_outline_rounded,
+                          color: Color(0xFFF97316), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('إرسال دعوة',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold)),
+                          Text('إلى: ${member.name}',
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748b))),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _sheetField('البريد الإلكتروني', emailCtrl,
+                    icon: Icons.alternate_email_rounded,
+                    keyboard: TextInputType.emailAddress,
+                    ltr: true),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF97316),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14))),
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            final email = emailCtrl.text.trim();
+                            if (email.isEmpty || !email.contains('@')) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                      content: Text(
+                                          'أدخل بريداً إلكترونياً صحيحاً')));
+                              return;
+                            }
+                            setSheetState(() => saving = true);
+                            try {
+                              await BackendMutationService.instance
+                                  .updateFamilyMemberEmail(
+                                memberId: member.id,
+                                email: email,
+                              );
+                              if (ctx.mounted) Navigator.pop(ctx);
+                              if (mounted) {
+                                ref.read(appRiverpod).syncBackendData();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                        'تم إرسال الدعوة إلى $email'),
+                                    backgroundColor:
+                                        const Color(0xFFF97316),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              setSheetState(() => saving = false);
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                        content: Text('خطأ: $e'),
+                                        backgroundColor: Colors.red));
+                              }
+                            }
+                          },
+                    icon: saving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label: Text(saving ? 'جاري الإرسال...' : 'إرسال الدعوة'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteFamilyMemberDialog(FamilyMember member) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('حذف فرد العائلة',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text(
+            'هل تريد حذف "${member.name}" من قائمة أفراد العائلة المرتبطين؟'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10))),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await BackendMutationService.instance
+                    .deleteFamilyMember(member.id);
+                if (mounted) {
+                  ref.read(appRiverpod).syncBackendData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content:
+                            Text('تم حذف ${member.name} بنجاح'),
+                        backgroundColor: const Color(0xFFEF4444)),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('خطأ أثناء الحذف: $e'),
+                      backgroundColor: Colors.red));
+                }
+              }
+            },
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sheetField(
+    String label,
+    TextEditingController ctrl, {
+    IconData? icon,
+    TextInputType keyboard = TextInputType.text,
+    bool ltr = false,
+  }) {
+    return TextField(
+      controller: ctrl,
+      textAlign: ltr ? TextAlign.left : TextAlign.right,
+      keyboardType: keyboard,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: icon != null ? Icon(icon, size: 18) : null,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide:
+                const BorderSide(color: Color(0xFF0ea5e9), width: 1.5)),
       ),
     );
   }
@@ -999,12 +1501,15 @@ class _AdminResidentDetailScreenState
   }
 
   void _showSocialHistoryForm(SpecialistResidentFile resident) {
-    final professionCtrl = TextEditingController(text: '');
-    final hobbiesCtrl = TextEditingController(text: '');
-    final statusCtrl = TextEditingController(text: '');
+    final professionCtrl =
+        TextEditingController(text: resident.previousProfession ?? '');
+    final hobbiesCtrl =
+        TextEditingController(text: (resident.hobbies ?? []).join('، '));
+    final statusCtrl =
+        TextEditingController(text: resident.socialStatus ?? '');
 
     _showSimpleEditSheet(
-      title: 'تعديل التاريخ الاجتماعي',
+      title: 'تعديل التاريخ الاجتماعي والنشاطات',
       color: const Color(0xFFD97706),
       fields: [
         _field('المهنة السابقة', professionCtrl),
@@ -1013,12 +1518,22 @@ class _AdminResidentDetailScreenState
         const SizedBox(height: 12),
         _field('الحالة الاجتماعية (مثال: متزوج، أرمل)', statusCtrl),
       ],
-      onSave: () => BackendMutationService.instance.updateSocialHistory(
-        residentId: resident.id,
-        previousProfession: professionCtrl.text.trim(),
-        socialStatus: statusCtrl.text.trim(),
-        hobbies: _splitCSV(hobbiesCtrl.text),
-      ),
+      onSave: () async {
+        await BackendMutationService.instance.updateSocialHistory(
+          residentId: resident.id,
+          previousProfession: professionCtrl.text.trim(),
+          socialStatus: statusCtrl.text.trim(),
+          hobbies: _splitCSV(hobbiesCtrl.text),
+        );
+        if (mounted) {
+          ref.read(appRiverpod).updateResidentSocialHistory(
+            residentId: resident.id,
+            previousProfession: professionCtrl.text.trim(),
+            socialStatus: statusCtrl.text.trim(),
+            hobbies: _splitCSV(hobbiesCtrl.text),
+          );
+        }
+      },
     );
   }
 
@@ -1432,15 +1947,7 @@ class _AdminResidentDetailScreenState
 
   Widget _buildAddDocCard() {
     return InkWell(
-      onTap: () {
-        setState(() => _isUploading = true);
-        Future.delayed(const Duration(seconds: 2), () {
-          if (!mounted) return;
-          setState(() => _isUploading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تم رفع المستند بنجاح')));
-        });
-      },
+      onTap: _isUploading ? null : () => _pickAndUploadDocument(),
       borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
@@ -1450,21 +1957,64 @@ class _AdminResidentDetailScreenState
                 color: const Color(0xFF0ea5e9),
                 style: BorderStyle.solid,
                 width: 2)),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_upload_outlined,
-                color: Color(0xFF0ea5e9), size: 35),
-            SizedBox(height: 8),
-            Text('رفع مستند',
-                style: TextStyle(
-                    color: Color(0xFF0ea5e9),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold)),
-          ],
-        ),
+        child: _isUploading
+            ? const Center(
+                child: CircularProgressIndicator(
+                    color: Color(0xFF0ea5e9), strokeWidth: 2.5))
+            : const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.cloud_upload_outlined,
+                      color: Color(0xFF0ea5e9), size: 35),
+                  SizedBox(height: 8),
+                  Text('رفع مستند',
+                      style: TextStyle(
+                          color: Color(0xFF0ea5e9),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
       ),
     );
+  }
+
+  Future<void> _pickAndUploadDocument() async {
+    final result = await fp.FilePicker.platform.pickFiles(
+      type: fp.FileType.custom,
+      allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+      allowMultiple: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    final filePath = file.path;
+    if (filePath == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final uploaded = await AiMediaService.instance.uploadFile(
+        filePath: filePath,
+        residentId: widget.residentId,
+      );
+      final url = uploaded.mediaUrl ?? filePath;
+      final provider = ref.read(appRiverpod);
+      provider.addDocumentToResident(widget.residentId, url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('تم رفع "${file.name}" بنجاح'),
+          backgroundColor: const Color(0xFF059669),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('فشل رفع المستند: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
   }
 
   // ignore: unused_element

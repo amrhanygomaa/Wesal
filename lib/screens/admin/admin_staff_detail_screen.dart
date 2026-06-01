@@ -30,12 +30,41 @@ class AdminStaffDetailScreen extends ConsumerStatefulWidget {
 
 class _AdminStaffDetailScreenState
     extends ConsumerState<AdminStaffDetailScreen> {
-  bool _isEditMode = false;
+  bool _isSavingStaff = false;
+
+  StaffPerformance _currentStaff(AppRiverpod provider) {
+    return provider.staffPerformanceList.firstWhere(
+      (s) => s.id == widget.staffId,
+      orElse: () => StaffPerformance(
+        id: widget.staffId,
+        name: widget.name,
+        role: widget.role,
+        completionRate: widget.rate,
+        lastActive: widget.time,
+        status: widget.status,
+      ),
+    );
+  }
+
+  bool _isNurseRole(String role) {
+    return role == 'Nurse' || role == 'ممرض';
+  }
+
+  String _roleTitle(String role) {
+    if (_isNurseRole(role)) return 'طاقم التمريض';
+    return 'أخصائي اجتماعي';
+  }
+
+  String _qualificationForRole(String role) {
+    return _isNurseRole(role) ? 'بكالوريوس تمريض' : 'ليسانس آداب قسم اجتماع';
+  }
 
   @override
   Widget build(BuildContext context) {
-    bool isNurse = widget.role == 'Nurse' || widget.role == 'ممرض';
-    bool isOnline = widget.status == 'online';
+    final provider = ref.watch(appRiverpod);
+    final staff = _currentStaff(provider);
+    final isNurse = _isNurseRole(staff.role);
+    final isOnline = staff.status == 'online';
 
     return TaptabaScaffold(
       title: 'ونس',
@@ -47,7 +76,7 @@ class _AdminStaffDetailScreenState
           textDirection: TextDirection.rtl,
           child: Column(
             children: [
-              _buildProfileHeader(context, isNurse, isOnline),
+              _buildProfileHeader(context, staff, isNurse, isOnline),
               const TabBar(
                 labelColor: Color(0xFF0ea5e9),
                 unselectedLabelColor: Color(0xFF64748b),
@@ -65,51 +94,56 @@ class _AdminStaffDetailScreenState
                     ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
-                        _buildInfoCard('الأداء والإنجاز', [
-                          const Text('معدل إنجاز المهام اليومية',
-                              style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF64748b))),
-                          const SizedBox(height: 8),
-                          _buildCompletionBar(widget.rate),
-                        ]),
+                        _buildInfoCard(
+                            'الأداء والإنجاز',
+                            [
+                              const Text('معدل إنجاز المهام اليومية',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Color(0xFF64748b))),
+                              const SizedBox(height: 8),
+                              _buildCompletionBar(staff.completionRate),
+                            ],
+                            onEdit: () => _showEditStaffSheet(context, staff)),
                       ],
                     ),
                     // Tab 2: Personal Info
                     ListView(
                       padding: const EdgeInsets.all(20),
                       children: [
-                        _buildInfoCard('البيانات الشخصية والمهنية', [
-                          _infoRow(
-                              'الرقم الوظيفي',
-                              'EMP-${widget.name.hashCode.toString().substring(0, 4)}',
-                              Icons.badge_outlined),
-                          _infoRow('الرقم القومي', '29501012345678',
-                              Icons.credit_card_outlined),
-                          _infoRow(
-                              'البريد الإلكتروني',
-                              '${widget.name.replaceAll(' ', '.').toLowerCase()}@tbtba.com',
-                              Icons.email_outlined),
-                          _infoRow(
-                              'المؤهل',
-                              isNurse
-                                  ? 'بكالوريوس تمريض'
-                                  : 'ليسانس آداب قسم اجتماع',
-                              Icons.school_outlined),
-                          if (isNurse) ...[
-                            _infoRow('القسم', 'العناية المركزة',
-                                Icons.local_hospital_outlined),
-                            _infoRow('الوردية', 'صباحية (8 ص - 4 م)',
-                                Icons.schedule_rounded),
-                          ] else ...[
-                            _infoRow('القسم', 'الدعم النفسي والاجتماعي',
-                                Icons.psychology_outlined),
-                            _infoRow('الحالات المتابعة', '12 حالة',
-                                Icons.people_outline),
-                          ],
-                        ]),
+                        _buildInfoCard(
+                            'البيانات الشخصية والمهنية',
+                            [
+                              _infoRow(
+                                  'الرقم الوظيفي',
+                                  'EMP-${staff.name.hashCode.abs().toString().padLeft(4, '0').substring(0, 4)}',
+                                  Icons.badge_outlined),
+                              _infoRow('الرقم القومي', '29501012345678',
+                                  Icons.credit_card_outlined),
+                              _infoRow(
+                                  'البريد الإلكتروني',
+                                  '${staff.name.replaceAll(' ', '.').toLowerCase()}@tbtba.com',
+                                  Icons.email_outlined),
+                              _infoRow(
+                                  'المؤهل',
+                                  _qualificationForRole(staff.role),
+                                  Icons.school_outlined),
+                              if (isNurse) ...[
+                                _infoRow('القسم', 'العناية المركزة',
+                                    Icons.local_hospital_outlined),
+                                _infoRow('الوردية', 'صباحية (8 ص - 4 م)',
+                                    Icons.schedule_rounded),
+                              ] else ...[
+                                _infoRow('القسم', 'الدعم النفسي والاجتماعي',
+                                    Icons.psychology_outlined),
+                                _infoRow('الحالات المتابعة', '12 حالة',
+                                    Icons.people_outline),
+                              ],
+                            ],
+                            onEdit: () => _showEditStaffSheet(context, staff)),
                         const SizedBox(height: 24),
                         OutlinedButton.icon(
-                          onPressed: () => _showDeleteConfirmation(context),
+                          onPressed: () =>
+                              _showDeleteConfirmation(context, staff),
                           icon: const Icon(Icons.delete_forever_rounded,
                               color: Colors.redAccent, size: 20),
                           label: const Text('حذف ملف الموظف نهائياً',
@@ -158,8 +192,8 @@ class _AdminStaffDetailScreenState
     );
   }
 
-  Widget _buildProfileHeader(
-      BuildContext context, bool isNurse, bool isOnline) {
+  Widget _buildProfileHeader(BuildContext context, StaffPerformance staff,
+      bool isNurse, bool isOnline) {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 30, 24, 30),
       decoration: const BoxDecoration(
@@ -186,18 +220,14 @@ class _AdminStaffDetailScreenState
                       fontWeight: FontWeight.bold)),
               IconButton(
                 icon: Icon(
-                    _isEditMode
-                        ? Icons.check_circle_rounded
+                    _isSavingStaff
+                        ? Icons.hourglass_top_rounded
                         : Icons.edit_note_rounded,
-                    color: _isEditMode ? Colors.greenAccent : Colors.white,
+                    color: Colors.white,
                     size: 28),
-                onPressed: () {
-                  setState(() => _isEditMode = !_isEditMode);
-                  if (!_isEditMode) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('تم حفظ التعديلات بنجاح')));
-                  }
-                },
+                onPressed: _isSavingStaff
+                    ? null
+                    : () => _showEditStaffSheet(context, staff),
               ),
             ],
           ),
@@ -216,19 +246,19 @@ class _AdminStaffDetailScreenState
                     builder: (context, ref, _) {
                       final provider = ref.watch(appRiverpod);
                       final staffList = provider.staffPerformanceList;
-                      final staff = staffList.firstWhere(
+                      final displayedStaff = staffList.firstWhere(
                         (s) => s.id == widget.staffId,
                         orElse: () => StaffPerformance(
                           id: widget.staffId,
-                          name: widget.name,
-                          role: widget.role,
-                          completionRate: widget.rate,
-                          lastActive: widget.time,
-                          status: widget.status,
+                          name: staff.name,
+                          role: staff.role,
+                          completionRate: staff.completionRate,
+                          lastActive: staff.lastActive,
+                          status: staff.status,
                         ),
                       );
 
-                      final String? imageUrl = staff.imageUrl;
+                      final String? imageUrl = displayedStaff.imageUrl;
 
                       return CircleAvatar(
                         radius: 50,
@@ -273,7 +303,7 @@ class _AdminStaffDetailScreenState
           ),
           const SizedBox(height: 15),
           Text(
-            widget.name,
+            staff.name,
             textAlign: TextAlign.center,
             style: const TextStyle(
                 fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
@@ -283,7 +313,7 @@ class _AdminStaffDetailScreenState
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                isNurse ? 'طاقم التمريض' : 'أخصائي اجتماعي',
+                _roleTitle(staff.role),
                 style: TextStyle(
                     fontSize: 14, color: Colors.white.withValues(alpha: 0.6)),
               ),
@@ -311,7 +341,8 @@ class _AdminStaffDetailScreenState
     );
   }
 
-  Widget _buildInfoCard(String title, List<Widget> children) {
+  Widget _buildInfoCard(String title, List<Widget> children,
+      {VoidCallback? onEdit}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -325,7 +356,7 @@ class _AdminStaffDetailScreenState
         ],
       ),
       child: InkWell(
-        onTap: _isEditMode ? () {} : null,
+        onTap: onEdit,
         borderRadius: BorderRadius.circular(24),
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -340,9 +371,18 @@ class _AdminStaffDetailScreenState
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0369a1))),
-                  if (_isEditMode)
-                    const Icon(Icons.edit_rounded,
-                        size: 18, color: Colors.blueAccent),
+                  if (onEdit != null)
+                    IconButton(
+                      onPressed: onEdit,
+                      icon: const Icon(Icons.edit_rounded,
+                          size: 18, color: Colors.blueAccent),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
                 ],
               ),
               const Divider(
@@ -427,7 +467,230 @@ class _AdminStaffDetailScreenState
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context) {
+  void _showEditStaffSheet(BuildContext context, StaffPerformance staff) {
+    final nameController = TextEditingController(text: staff.name);
+    var selectedRole = _isNurseRole(staff.role) ? 'Nurse' : 'ClinicalStaff';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setModalState) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE2E8F0),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'تعديل بيانات الموظف',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: nameController,
+                      textAlign: TextAlign.right,
+                      decoration: InputDecoration(
+                        labelText: 'الاسم الكامل',
+                        prefixIcon: const Icon(Icons.person_outline_rounded),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'الدور الوظيفي',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildRoleChoice(
+                            label: 'تمريض',
+                            icon: Icons.medical_services_outlined,
+                            selected: selectedRole == 'Nurse',
+                            onTap: () =>
+                                setModalState(() => selectedRole = 'Nurse'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildRoleChoice(
+                            label: 'أخصائي اجتماعي',
+                            icon: Icons.psychology_outlined,
+                            selected: selectedRole == 'ClinicalStaff',
+                            onTap: () => setModalState(
+                                () => selectedRole = 'ClinicalStaff'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 22),
+                    ElevatedButton.icon(
+                      onPressed: _isSavingStaff
+                          ? null
+                          : () async {
+                              final name = nameController.text.trim();
+                              if (name.isEmpty) {
+                                ScaffoldMessenger.of(sheetContext)
+                                    .showSnackBar(const SnackBar(
+                                  content: Text('اكتب اسم الموظف أولاً'),
+                                  backgroundColor: Color(0xFFef4444),
+                                ));
+                                return;
+                              }
+
+                              setState(() => _isSavingStaff = true);
+                              final updated = staff.copyWith(
+                                name: name,
+                                role: selectedRole,
+                              );
+                              final provider = ref.read(appRiverpod);
+                              await provider.updateStaff(updated);
+                              if (!mounted) return;
+                              setState(() => _isSavingStaff = false);
+
+                              if (!sheetContext.mounted) return;
+                              if (provider.backendSyncError != null) {
+                                ScaffoldMessenger.of(sheetContext)
+                                    .showSnackBar(SnackBar(
+                                  content: Text(provider.backendSyncError!),
+                                  backgroundColor: const Color(0xFFef4444),
+                                ));
+                                return;
+                              }
+
+                              Navigator.pop(sheetContext);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم حفظ بيانات الموظف بنجاح'),
+                                  backgroundColor: Color(0xFF10B981),
+                                ),
+                              );
+                            },
+                      icon: _isSavingStaff
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.save_rounded),
+                      label: const Text(
+                        'حفظ التعديلات',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0ea5e9),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    ).whenComplete(() {
+      nameController.dispose();
+      if (mounted && _isSavingStaff) {
+        setState(() => _isSavingStaff = false);
+      }
+    });
+  }
+
+  Widget _buildRoleChoice({
+    required String label,
+    required IconData icon,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? const Color(0xFF0ea5e9) : const Color(0xFFE2E8F0),
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon,
+                size: 18,
+                color: selected
+                    ? const Color(0xFF0369A1)
+                    : const Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: selected
+                      ? const Color(0xFF0369A1)
+                      : const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, StaffPerformance staff) {
+    final parentContext = context;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -436,18 +699,29 @@ class _AdminStaffDetailScreenState
             textAlign: TextAlign.center,
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
-            'هل أنت متأكد من رغبتك في حذف ملف الموظف "${widget.name}" بالكامل؟ لا يمكن التراجع عن هذا الإجراء.',
+            'هل أنت متأكد من رغبتك في حذف ملف الموظف "${staff.name}" بالكامل؟ لا يمكن التراجع عن هذا الإجراء.',
             textAlign: TextAlign.center),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('إلغاء')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Go back to list
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم حذف ملف الموظف بنجاح')));
+              await ref.read(appRiverpod).deleteStaff(staff.id);
+              if (!parentContext.mounted) return;
+              if (ref.read(appRiverpod).backendSyncError != null) {
+                ScaffoldMessenger.of(parentContext).showSnackBar(SnackBar(
+                  content: Text(ref.read(appRiverpod).backendSyncError!),
+                  backgroundColor: const Color(0xFFef4444),
+                ));
+                return;
+              }
+              Navigator.pop(parentContext); // Go back to list
+              ScaffoldMessenger.of(parentContext).showSnackBar(const SnackBar(
+                content: Text('تم حذف ملف الموظف بنجاح'),
+                backgroundColor: Color(0xFF10B981),
+              ));
             },
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.redAccent,

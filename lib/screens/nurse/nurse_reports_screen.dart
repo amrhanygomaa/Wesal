@@ -33,6 +33,24 @@ class _NurseReportsScreenState extends ConsumerState<NurseReportsScreen>
   bool _isCriticalAlertOn = true;
   bool _isMissedMedAlertOn = true;
 
+  String _fullArabicDate(DateTime date) {
+    const arabicMonths = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+    return '${date.day} ${arabicMonths[date.month - 1]} ${date.year}';
+  }
+
   /// Returns a human-readable "last sent" label derived from [sentReports].
   String _lastSentLabel(List<SentReport> sentReports) {
     if (sentReports.isEmpty) return 'لم يُرسل بعد';
@@ -133,17 +151,12 @@ class _NurseReportsScreenState extends ConsumerState<NurseReportsScreen>
       if (reportType == 'تقرير أدوية') icon = '💊';
 
       final now = DateTime.now();
-      const arabicMonths = [
-        'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-      ];
-      final monthName = arabicMonths[now.month - 1];
       final hourStr = now.hour.toString().padLeft(2, '0');
       final minStr = now.minute.toString().padLeft(2, '0');
       await provider.addSentReport(SentReport(
         id: now.millisecondsSinceEpoch.toString(),
         icon: icon,
-        title: '$reportType — ${now.day} $monthName',
+        title: '$reportType لتاريخ ${_fullArabicDate(now)}',
         meta: 'أُرسل يدوياً · $hourStr:$minStr',
         status: 'أُرسل',
         date: now.toIso8601String(),
@@ -1514,8 +1527,8 @@ class _NurseReportsScreenState extends ConsumerState<NurseReportsScreen>
       final parts = report.title.split('—');
       mainTitle = parts[0].trim();
       subtitle = parts[1].trim();
-    } else if (report.title.contains('-')) {
-      final parts = report.title.split('-');
+    } else if (report.title.contains(' - ')) {
+      final parts = report.title.split(' - ');
       mainTitle = parts[0].trim();
       subtitle = parts[1].trim();
     }

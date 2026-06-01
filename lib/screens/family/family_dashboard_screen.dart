@@ -63,8 +63,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
 
     _fadeController.forward();
     // Load inbox once — not inside build() to avoid infinite rebuild loop.
-    WidgetsBinding.instance.addPostFrameCallback(
-        (_) => ref.read(appRiverpod).loadMessageInbox());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => ref.read(appRiverpod).loadMessageInbox());
   }
 
   @override
@@ -555,15 +555,14 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
         children: [
           _buildHealthMetricsGrid(provider),
           const SizedBox(height: 24),
-          _buildChatCard(provider)
-              .animate()
-              .fadeIn(duration: 350.ms)
-              .slideY(begin: 0.06, end: 0, duration: 350.ms, curve: Curves.easeOut),
+          _buildChatCard(provider).animate().fadeIn(duration: 350.ms).slideY(
+              begin: 0.06, end: 0, duration: 350.ms, curve: Curves.easeOut),
           const SizedBox(height: 24),
           _buildFamilyAIUpdateCard(provider)
               .animate(delay: 80.ms)
               .fadeIn(duration: 350.ms)
-              .slideY(begin: 0.06, end: 0, duration: 350.ms, curve: Curves.easeOut),
+              .slideY(
+                  begin: 0.06, end: 0, duration: 350.ms, curve: Curves.easeOut),
           const SizedBox(height: 24),
           _buildGamificationCard(provider, context),
           const SizedBox(height: 24),
@@ -583,6 +582,13 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
   }
 
   Widget _buildChatCard(AppRiverpod provider) {
+    final residentId =
+        provider.backendResidentId ?? provider.currentAccount?.linkedResidentId;
+    final canStartResidentChat = residentId != null && residentId.isNotEmpty;
+    final residentName = provider.residentFiles.isNotEmpty
+        ? provider.residentFiles.first.name
+        : 'المقيم';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -625,10 +631,80 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                         width: 18,
                         height: 18,
                         decoration: const BoxDecoration(
-                            color: Color(0xFFfed7aa),
-                            shape: BoxShape.circle)),
+                            color: Color(0xFFfed7aa), shape: BoxShape.circle)),
                   ),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: canStartResidentChat
+                  ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FamilyResidentChatScreen(
+                            otherUserId: residentId,
+                            otherUserName: residentName,
+                            otherUserRole: 'المقيم',
+                            residentId: residentId,
+                          ),
+                        ),
+                      ).then((_) => provider.loadMessageInbox())
+                  : null,
+              child: Ink(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: canStartResidentChat
+                      ? const LinearGradient(
+                          colors: [Color(0xFFea580c), Color(0xFFf97316)])
+                      : null,
+                  color: canStartResidentChat ? null : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.arrow_back_ios_new_rounded,
+                        color: canStartResidentChat
+                            ? Colors.white
+                            : const Color(0xFF94a3b8),
+                        size: 18),
+                    const Spacer(),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'محادثة مباشرة مع $residentName',
+                          style: TextStyle(
+                              color: canStartResidentChat
+                                  ? Colors.white
+                                  : const Color(0xFF64748b),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14),
+                        ),
+                        Text(
+                          canStartResidentChat
+                              ? 'متاحة في أي وقت بدون حجز موعد'
+                              : 'جاري تجهيز ربط حساب المقيم',
+                          style: TextStyle(
+                              color: canStartResidentChat
+                                  ? Colors.white70
+                                  : const Color(0xFF94a3b8),
+                              fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(Icons.chat_bubble_rounded,
+                        color: canStartResidentChat
+                            ? Colors.white
+                            : const Color(0xFF94a3b8),
+                        size: 24),
+                  ],
+                ),
+              ),
             ),
           ),
           if (provider.messageInbox.isEmpty && !provider.isLoadingInbox)
@@ -637,7 +713,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
               child: Column(
                 children: [
                   Text(
-                    'لا توجد محادثات بعد.\nسيظهر هنا تاريخ المحادثة بمجرد بدء التواصل.',
+                    'لا توجد محادثات سابقة بعد.\nيمكنك بدء محادثة مباشرة من الزر بالأعلى.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 13, color: Color(0xFF94a3b8), height: 1.6),
@@ -672,9 +748,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                   title: Text(
                     thread.otherUserName,
                     style: TextStyle(
-                        fontWeight: unread
-                            ? FontWeight.bold
-                            : FontWeight.w500,
+                        fontWeight: unread ? FontWeight.bold : FontWeight.w500,
                         fontSize: 14),
                   ),
                   subtitle: Text(
@@ -708,6 +782,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                         otherUserId: thread.otherUserId,
                         otherUserName: thread.otherUserName,
                         otherUserRole: thread.otherUserRole,
+                        residentId: residentId,
                       ),
                     ),
                   ).then((_) => provider.loadMessageInbox()),
@@ -744,7 +819,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                   color: Color(0xFFF3E8FF),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6), size: 20),
+                child: const Icon(Icons.auto_awesome,
+                    color: Color(0xFF8B5CF6), size: 20),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -775,8 +851,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                     CircularProgressIndicator(color: Color(0xFF8B5CF6)),
                     SizedBox(height: 10),
                     Text('جارٍ توليد التحديث الأسبوعي...',
-                        style: TextStyle(
-                            fontSize: 13, color: Color(0xFF64748B))),
+                        style:
+                            TextStyle(fontSize: 13, color: Color(0xFF64748B))),
                   ],
                 ),
               ),
@@ -813,8 +889,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                     }
                   },
                   icon: const Icon(Icons.auto_awesome, size: 18),
-                  label: const Text(
-                      'توليد التحديث الأسبوعي بالذكاء الاصطناعي',
+                  label: const Text('توليد التحديث الأسبوعي بالذكاء الاصطناعي',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
@@ -871,9 +946,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                   child: Text(
                     provider.latestFamilyUpdate,
                     style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF334155),
-                        height: 1.6),
+                        fontSize: 13, color: Color(0xFF334155), height: 1.6),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -887,7 +960,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                     }
                   },
                   icon: const Icon(Icons.refresh_rounded, size: 14),
-                  label: const Text('تحديث مجدداً', style: TextStyle(fontSize: 12)),
+                  label: const Text('تحديث مجدداً',
+                      style: TextStyle(fontSize: 12)),
                   style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFF8B5CF6)),
                 ),
@@ -2163,16 +2237,14 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                       _buildVisitsList(
                         provider.familyVisits
                             .where((v) =>
-                                v.status == 'upcoming' ||
-                                v.status == 'pending')
+                                v.status == 'upcoming' || v.status == 'pending')
                             .toList(),
                         isUpcoming: true,
                       ),
                       _buildVisitsList(
                         provider.familyVisits
                             .where((v) =>
-                                v.status != 'upcoming' &&
-                                v.status != 'pending')
+                                v.status != 'upcoming' && v.status != 'pending')
                             .toList(),
                         isUpcoming: false,
                       ),
@@ -2236,8 +2308,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
     );
   }
 
-  Widget _buildVisitsList(List<FamilyVisit> visits,
-      {bool isUpcoming = true}) {
+  Widget _buildVisitsList(List<FamilyVisit> visits, {bool isUpcoming = true}) {
     if (visits.isEmpty) {
       return Center(
         child: Padding(
@@ -2250,8 +2321,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                 decoration: BoxDecoration(
                   color: const Color(0xFFfff7ed),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                      color: const Color(0xFFfed7aa), width: 2),
+                  border: Border.all(color: const Color(0xFFfed7aa), width: 2),
                 ),
                 child: const Icon(Icons.calendar_today_rounded,
                     size: 40, color: Color(0xFFea580c)),
@@ -2269,8 +2339,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                 const Text(
                   'جدّل زيارتك القادمة لأحبائك الآن',
                   textAlign: TextAlign.center,
-                  style:
-                      TextStyle(fontSize: 14, color: Color(0xFF94a3b8)),
+                  style: TextStyle(fontSize: 14, color: Color(0xFF94a3b8)),
                 ),
               if (isUpcoming) ...[
                 const SizedBox(height: 20),
@@ -2535,7 +2604,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                            color: const Color(0xFFea580c).withValues(alpha: 0.3),
+                            color:
+                                const Color(0xFFea580c).withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 3))
                       ],
@@ -2569,7 +2639,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                     decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(14)),
-                    child: const Icon(Icons.download_rounded, color: Colors.white),
+                    child:
+                        const Icon(Icons.download_rounded, color: Colors.white),
                   ),
                 ),
               ],

@@ -15,7 +15,7 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
     with TickerProviderStateMixin {
   late AnimationController _floatController;
   late AnimationController _rotationController;
-  int _selectedType = 0; // 0: Physical, 1: Video, 2: Chat
+  int _selectedType = 0; // 0: Physical, 1: Video
   int _selectedDay = DateTime.now().day;
   String? _selectedSlot;
   final DateTime _now = DateTime.now();
@@ -285,22 +285,13 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
   }
 
   Widget _buildVisitTypeTabs() {
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-                child:
-                    _buildTypeCard(0, 'لقاء مودة', Icons.people_alt_rounded)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _buildTypeCard(
-                    1, 'مكالمة فيديو', Icons.videocam_rounded)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        _buildTypeCard(
-            2, 'محادثة شات مع المقيم', Icons.chat_bubble_outline_rounded),
+        Expanded(
+            child: _buildTypeCard(0, 'لقاء مودة', Icons.people_alt_rounded)),
+        const SizedBox(width: 12),
+        Expanded(
+            child: _buildTypeCard(1, 'مكالمة فيديو', Icons.videocam_rounded)),
       ],
     );
   }
@@ -364,8 +355,7 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: const Icon(Icons.chevron_left,
-                    color: Color(0xFF94a3b8)),
+                icon: const Icon(Icons.chevron_left, color: Color(0xFF94a3b8)),
                 onPressed: () {
                   final isCurrentMonth = _calendarYear == _now.year &&
                       _calendarMonth == _now.month;
@@ -378,8 +368,7 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1e293b))),
               IconButton(
-                icon: const Icon(Icons.chevron_right,
-                    color: Color(0xFF94a3b8)),
+                icon: const Icon(Icons.chevron_right, color: Color(0xFF94a3b8)),
                 onPressed: _nextMonth,
               ),
             ],
@@ -394,8 +383,8 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
             itemBuilder: (context, i) {
               int day = i + 1;
               bool isSelected = day == _selectedDay;
-              final isSameMonth = _calendarYear == _now.year &&
-                  _calendarMonth == _now.month;
+              final isSameMonth =
+                  _calendarYear == _now.year && _calendarMonth == _now.month;
               bool isPast = isSameMonth && day < _now.day;
               return GestureDetector(
                 onTap: isPast ? null : () => setState(() => _selectedDay = day),
@@ -506,14 +495,10 @@ class _VisitBookingScreenState extends ConsumerState<VisitBookingScreen>
                   visitorName: provider.currentAccount?.name ?? 'فرد أسرة',
                   date: '$_selectedDay $_monthName $_calendarYear',
                   time: _selectedSlot!,
-                  type: _selectedType == 0
-                      ? 'physical'
-                      : _selectedType == 1
-                          ? 'video'
-                          : 'chat',
+                  type: _selectedType == 0 ? 'physical' : 'video',
                   status: 'pending',
-                  scheduledAt: DateTime(
-                      _calendarYear, _calendarMonth, _selectedDay),
+                  scheduledAt:
+                      DateTime(_calendarYear, _calendarMonth, _selectedDay),
                 ));
                 if (!mounted) return;
                 if (provider.backendSyncError != null) {

@@ -63,8 +63,8 @@ class SpecialistAssessmentView extends ConsumerWidget {
                     provider), // شريط البحث والفلترة حسب الغرف أو الحالات
                 const SizedBox(height: 12),
                 // عرض قائمة المقيمين الذين يحتاجون لتقييم دوري
-                ...provider.filteredResidentScores.map(
-                    (score) => _buildResidentAssessmentCard(context, score)),
+                ...provider.filteredResidentScores.map((score) =>
+                    _buildResidentAssessmentCard(context, score, provider)),
               ],
               const SizedBox(height: 40),
             ]),
@@ -234,6 +234,7 @@ class SpecialistAssessmentView extends ConsumerWidget {
   // نافذة عرض تفاصيل أداة التقييم قبل البدء
   void _showToolDetails(BuildContext context,
       SocialSpecialistAssessmentTool tool, AppRiverpod provider) {
+    final parentContext = context;
     final questions = provider.getQuestionsForTool(tool.id);
     final Set<int> selectedIndices =
         Set.from(Iterable.generate(questions.length));
@@ -429,34 +430,41 @@ class SpecialistAssessmentView extends ConsumerWidget {
                           Row(children: [
                             Expanded(
                                 child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      // تصفية الأسئلة المختارة
-                                      final List<AssessmentQuestion>
-                                          selectedQuestions = [];
-                                      for (int i in selectedIndices) {
-                                        final q = questions[i];
-                                        selectedQuestions
-                                            .add(AssessmentQuestion(
-                                          id: 'q$i',
-                                          text: q['text'],
-                                          type: q['type'],
-                                          options: q['options'] != null
-                                              ? List<String>.from(q['options'])
-                                              : null,
-                                        ));
-                                      }
-                                      Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                              builder: (context) =>
-                                                  AssessmentDetailedScreen(
-                                                      tool: tool,
-                                                      resident:
-                                                          selectedResident!,
-                                                      initialQuestions:
-                                                          selectedQuestions)));
-                                    },
+                                    onPressed: selectedResident == null ||
+                                            (questions.isNotEmpty &&
+                                                selectedIndices.isEmpty)
+                                        ? null
+                                        : () {
+                                            // تصفية الأسئلة المختارة
+                                            final List<AssessmentQuestion>
+                                                selectedQuestions = [];
+                                            final sortedIndices =
+                                                selectedIndices.toList()
+                                                  ..sort();
+                                            for (final i in sortedIndices) {
+                                              final q = questions[i];
+                                              selectedQuestions
+                                                  .add(AssessmentQuestion(
+                                                id: 'q$i',
+                                                text: q['text'],
+                                                type: q['type'],
+                                                options: q['options'] != null
+                                                    ? List<String>.from(
+                                                        q['options'])
+                                                    : null,
+                                              ));
+                                            }
+                                            _openAssessmentDetails(
+                                              parentContext,
+                                              selectedResident!,
+                                              tool: tool,
+                                              initialQuestions:
+                                                  questions.isEmpty
+                                                      ? null
+                                                      : selectedQuestions,
+                                              closeSheet: true,
+                                            );
+                                          },
                                     style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFFea580c),
@@ -580,12 +588,12 @@ class SpecialistAssessmentView extends ConsumerWidget {
   }
 
   // بناء كارت المقيم الفردي لعرض درجات تقييماته الأخيرة
-  Widget _buildResidentAssessmentCard(
-      BuildContext context, SocialSpecialistResidentScore score) {
+  Widget _buildResidentAssessmentCard(BuildContext context,
+      SocialSpecialistResidentScore score, AppRiverpod provider) {
     return FadeTransition(
       opacity: fadeAnimations[4],
       child: GestureDetector(
-        onTap: () => _showResidentAssessmentOptions(context, score),
+        onTap: () => _showResidentAssessmentOptions(context, score, provider),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -655,8 +663,8 @@ class SpecialistAssessmentView extends ConsumerWidget {
               Row(children: [
                 Expanded(
                     child: GestureDetector(
-                        onTap: () =>
-                            _showResidentAssessmentOptions(context, score),
+                        onTap: () => _showResidentAssessmentOptions(
+                            context, score, provider),
                         child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -671,11 +679,11 @@ class SpecialistAssessmentView extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                     child: GestureDetector(
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    AssessmentDetailedScreen(resident: score))),
+                        onTap: () => _openAssessmentDetails(
+                              context,
+                              score,
+                              tool: _defaultAssessmentTool(provider),
+                            ),
                         child: Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
@@ -698,9 +706,43 @@ class SpecialistAssessmentView extends ConsumerWidget {
     );
   }
 
+  SocialSpecialistAssessmentTool? _defaultAssessmentTool(AppRiverpod provider) {
+    if (provider.socialAssessmentTools.isEmpty) return null;
+    return provider.socialAssessmentTools.first;
+  }
+
+  void _openAssessmentDetails(
+    BuildContext context,
+    SocialSpecialistResidentScore score, {
+    SocialSpecialistAssessmentTool? tool,
+    List<AssessmentQuestion>? initialQuestions,
+    bool closeSheet = false,
+  }) {
+    final navigator = Navigator.of(context);
+    final route = MaterialPageRoute(
+      builder: (_) => AssessmentDetailedScreen(
+        resident: score,
+        tool: tool,
+        initialQuestions: initialQuestions,
+      ),
+    );
+
+    if (!closeSheet) {
+      navigator.push(route);
+      return;
+    }
+
+    navigator.pop();
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (!navigator.mounted) return;
+      navigator.push(route);
+    });
+  }
+
   // نافذة الخيارات عند الضغط على كارت المقيم
-  void _showResidentAssessmentOptions(
-      BuildContext context, SocialSpecialistResidentScore score) {
+  void _showResidentAssessmentOptions(BuildContext context,
+      SocialSpecialistResidentScore score, AppRiverpod provider) {
+    final parentContext = context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -734,17 +776,22 @@ class SpecialistAssessmentView extends ConsumerWidget {
                       const SizedBox(height: 32),
                       _buildOptionButton(context, 'فتح التقييم التفصيلي 📊',
                           const Color(0xFFfff7ed), const Color(0xFFea580c), () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    AssessmentDetailedScreen(resident: score)));
+                        _openAssessmentDetails(
+                          parentContext,
+                          score,
+                          tool: _defaultAssessmentTool(provider),
+                          closeSheet: true,
+                        );
                       }),
                       const SizedBox(height: 12),
                       _buildOptionButton(context, 'بدء تقييم جديد الآن 📝',
                           const Color(0xFFea580c), Colors.white, () {
-                        Navigator.pop(context);
+                        _openAssessmentDetails(
+                          parentContext,
+                          score,
+                          tool: _defaultAssessmentTool(provider),
+                          closeSheet: true,
+                        );
                       }),
                       const SizedBox(height: 12),
                       _buildOptionButton(context, 'إلغاء', Colors.transparent,
@@ -904,7 +951,7 @@ class SpecialistAssessmentView extends ConsumerWidget {
                 .where((s) => s.id == r['id'])
                 .toList();
             if (matches.isEmpty) return;
-            _showResidentAssessmentOptions(context, matches.first);
+            _showResidentAssessmentOptions(context, matches.first, provider);
           },
           child: Container(
             decoration: BoxDecoration(
@@ -998,7 +1045,7 @@ class _CardDustAnimationState extends State<CardDustAnimation>
           ..repeat();
 
     final random = Random();
-    _dust = List.generate(45, (index) {
+    _dust = List.generate(18, (index) {
       return CardDustParticle(
         position: Offset(random.nextDouble(), random.nextDouble()),
         speed: random.nextDouble() * 0.05 + 0.02,
@@ -1016,14 +1063,18 @@ class _CardDustAnimationState extends State<CardDustAnimation>
   @override
   Widget build(BuildContext context) {
     return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return CustomPaint(
-            painter:
-                CardDustPainter(dust: _dust, animationValue: _controller.value),
-          );
-        },
+      child: IgnorePointer(
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: CardDustPainter(
+                    dust: _dust, animationValue: _controller.value),
+              );
+            },
+          ),
+        ),
       ),
     );
   }

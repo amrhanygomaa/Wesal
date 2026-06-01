@@ -108,7 +108,7 @@ class _MyAppState extends ConsumerState<MyApp> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ونيس',
+      title: 'ونس',
       // ── Arabic RTL Configuration ──────────────────────────────
       locale: const Locale('ar', 'SA'),
       supportedLocales: const [Locale('ar', 'SA')],

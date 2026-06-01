@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/app_riverpod.dart';
+import '../chat/family_resident_chat_screen.dart';
 import 'cognitive_games_screen.dart';
 import '../../models/app_models.dart'; // نماذج البيانات (Medication, User, etc.)
 import 'package:lottie/lottie.dart';
@@ -63,7 +64,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     )..repeat(reverse: true);
-
   }
 
   @override
@@ -102,7 +102,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     const SizedBox(height: 12),
                     _buildCognitiveGamesCard(provider, context),
                     const SizedBox(height: 12),
-                    _buildPointsCard(provider), // نقاط تظهر أولاً فوق جهات الاتصال
+                    _buildPointsCard(
+                        provider), // نقاط تظهر أولاً فوق جهات الاتصال
                     const SizedBox(height: 12),
                     _buildFamilyCard(provider, context),
                     const SizedBox(height: 12),
@@ -463,7 +464,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (nextMed.isElderlyConfirmed && !nextMed.isTaken) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
@@ -481,13 +482,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ),
         child: Row(
           children: [
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                  color: Colors.white, strokeWidth: 2.5),
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.hourglass_top_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,11 +507,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   const Text(
-                    'في انتظار تأكيد الممرض...',
+                    'في انتظار تأكيد الممرض',
                     style: TextStyle(color: Colors.white70, fontSize: 13),
                   ),
+                ],
+              ),
+            ),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check_circle_outline_rounded,
+                      color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text('تم التأكيد',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -628,8 +657,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         color: hc ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-            color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
-            width: 1.5),
+            color: const Color(0xFF3B82F6).withValues(alpha: 0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
               color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
@@ -643,7 +671,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           children: [
             const Row(
               children: [
-                Icon(Icons.extension_rounded, color: Color(0xFF3B82F6), size: 28),
+                Icon(Icons.extension_rounded,
+                    color: Color(0xFF3B82F6), size: 28),
                 SizedBox(width: 8),
                 Text('ألعاب وتدريبات ذهنية 🧠',
                     style: TextStyle(
@@ -725,21 +754,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildFamilyCard(AppRiverpod provider, BuildContext context) {
-    bool hc = provider.isHighContrast;
+    final bool hc = provider.isHighContrast;
+    final members = provider.familyMembers;
+    const gradients = [
+      [Color(0xFFf472b6), Color(0xFFdb2777)],
+      [Color(0xFF34d399), Color(0xFF059669)],
+      [Color(0xFF818cf8), Color(0xFF4f46e5)],
+      [Color(0xFFfbbf24), Color(0xFFd97706)],
+    ];
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: hc ? const Color(0xFF1E1E1E) : Colors.white,
         borderRadius: BorderRadius.circular(26),
         border: Border.all(
-            color: hc
-                ? const Color(0xFF6C63FF).withValues(alpha: 0.4)
-                : const Color(0xFF6C63FF).withValues(alpha: 0.3),
+            color: const Color(0xFF6C63FF).withValues(alpha: hc ? 0.4 : 0.3),
             width: 1.5),
         boxShadow: [
           BoxShadow(
-              color:
-                  const Color(0xFF6C63FF).withValues(alpha: hc ? 0.25 : 0.15),
+              color: const Color(0xFF6C63FF).withValues(alpha: hc ? 0.25 : 0.15),
               blurRadius: 10,
               offset: const Offset(0, 4))
         ],
@@ -747,245 +781,322 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Icon(Icons.phone_enabled_rounded,
-                    color: Color(0xFF6C63FF), size: 28),
-                SizedBox(width: 8),
-                Text('تواصل مع أحبائك 💜',
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF6C63FF))),
-              ],
-            ),
-            const SizedBox(height: 16),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.95,
-              ),
-              itemCount: provider.familyMembers.length,
-              itemBuilder: (context, index) {
-                final member = provider.familyMembers[index];
-                final List<Color> avatarColors = [
-                  const Color(0xFFdb2777),
-                  const Color(0xFF10b981),
-                  const Color(0xFF6366F1),
-                ];
-                return _buildPerson(
-                  member,
-                  avatarColors[index % avatarColors.length],
-                  provider,
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCallActionSheet(
-      BuildContext context, FamilyMember member, AppRiverpod provider) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 24),
-            Text('كيف تود التواصل مع ${member.name}؟',
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Cairo')),
-            const SizedBox(height: 30),
+            // Header
             Row(
               children: [
-                Expanded(
-                  child: _buildCallTypeButton(
-                    label: 'اتصال هاتف',
-                    icon: Icons.phone_forwarded_rounded,
-                    color: const Color(0xFF10B981),
-                    onTap: () {
-                      Navigator.pop(context);
-                      provider.callPhoneNumber(member.phoneNumber);
-                      provider.addPoints(2);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildCallTypeButton(
-                    label: 'مكالمة زووم',
-                    icon: Icons.videocam_rounded,
-                    color: const Color(0xFF6366F1),
-                    onTap: () {
-                      Navigator.pop(context);
-                      if (member.isAvailable) {
-                        provider.launchZoom(member.zoomLink);
-                        provider.addPoints(5);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  '${member.name} غير متاح حالياً للزووم.',
-                                  style: const TextStyle(
-                                      fontSize: 18, fontFamily: 'Cairo'))),
-                        );
-                      }
-                    },
-                  ),
-                ),
+                const Icon(Icons.phone_enabled_rounded,
+                    color: Color(0xFF6C63FF), size: 26),
+                const SizedBox(width: 8),
+                Text('تواصل مع أحبائك 💜',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: hc ? Colors.white : const Color(0xFF6C63FF))),
               ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCallTypeButton(
-      {required String label,
-      required IconData icon,
-      required Color color,
-      required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 2),
-          boxShadow: [
-            BoxShadow(
-                color: color.withValues(alpha: 0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 48),
-            const SizedBox(height: 12),
-            Text(label,
-                style: TextStyle(
-                    color: color,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Cairo')),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPerson(FamilyMember member, Color color, AppRiverpod provider) {
-    bool hc = provider.isHighContrast;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _showCallActionSheet(context, member, provider),
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          decoration: BoxDecoration(
-            color: hc ? const Color(0xFF252525) : const Color(0xFFf5f3ff),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-                color: hc ? const Color(0xFF444444) : const Color(0xFFede9fe),
-                width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                  color:
-                      const Color(0xFF6C63FF).withValues(alpha: hc ? 0.2 : 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4))
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: member.isAvailable
-                        ? const Color(0xFF4ade80)
-                        : const Color(0xFFd1d5db),
-                  ),
+            const SizedBox(height: 14),
+            // Members list — عمود واحد بدون GridView
+            ...List.generate(members.length, (i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildPerson(
+                  members[i],
+                  gradients[i % gradients.length]
+                      .map((c) => c)
+                      .toList(),
+                  provider,
                 ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 66,
-                      height: 66,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          )
-                        ],
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildPerson(
+      FamilyMember member, List<Color> gradient, AppRiverpod provider) {
+    final bool hc = provider.isHighContrast;
+    final bool isOnline = member.isAvailable;
+    final bool hasApp = member.userId != null && member.userId!.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: hc ? const Color(0xFF252525) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isOnline
+              ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+              : (hc ? const Color(0xFF333333) : const Color(0xFFF0F0F5)),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isOnline
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.10)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Top: avatar + name/relation ─────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Avatar with online dot
+              Stack(
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: isOnline
+                            ? gradient
+                            : [
+                                const Color(0xFFE5E7EB),
+                                const Color(0xFFD1D5DB)
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      child: Center(
-                        child: Text(
-                          member.initials,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isOnline
+                                  ? gradient[0]
+                                  : const Color(0xFF9CA3AF))
+                              .withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        )
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        member.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                  ),
+                  if (isOnline)
+                    Positioned(
+                      bottom: 1,
+                      right: 1,
+                      child: Container(
+                        width: 15,
+                        height: 15,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4ade80),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: hc ? const Color(0xFF252525) : Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // Name + relation
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
                       member.name,
-                      style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1f2937)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: hc ? Colors.white : const Color(0xFF1a1a1a),
+                        letterSpacing: -0.2,
+                      ),
                     ),
-                    Text(
-                      member.relation,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          color: Color(0xFF6b7280),
-                          fontWeight: FontWeight.w500),
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (isOnline
+                                ? const Color(0xFF6C63FF)
+                                : const Color(0xFF9CA3AF))
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        member.relation,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: isOnline
+                              ? const Color(0xFF6C63FF)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
+
+          const SizedBox(height: 12),
+          Divider(
+              height: 1,
+              thickness: 1,
+              color: hc
+                  ? Colors.white12
+                  : const Color(0xFFF3F4F6)),
+          const SizedBox(height: 10),
+
+          // ── Bottom: three action buttons ─────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Video call
+              _buildHomeActionBtn(
+                icon: Icons.videocam_rounded,
+                label: 'فيديو',
+                color: const Color(0xFF6C63FF),
+                isActive: isOnline,
+                hc: hc,
+                onTap: () {
+                  if (isOnline) {
+                    provider.launchZoom(member.zoomLink);
+                    provider.addPoints(5);
+                  } else {
+                    _showFeedbackSnack(
+                        '${member.name} غير متاح حالياً للمكالمة');
+                  }
+                },
+              ),
+              // Phone call
+              _buildHomeActionBtn(
+                icon: Icons.phone_rounded,
+                label: 'اتصال',
+                color: const Color(0xFF4ade80),
+                isActive: member.phoneNumber.isNotEmpty,
+                hc: hc,
+                onTap: () {
+                  provider.callPhoneNumber(member.phoneNumber);
+                  provider.addPoints(2);
+                },
+              ),
+              // Chat
+              _buildHomeActionBtn(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'رسالة',
+                color: const Color(0xFFEA580C),
+                isActive: hasApp,
+                hc: hc,
+                onTap: hasApp
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FamilyResidentChatScreen(
+                              otherUserId: member.userId!,
+                              otherUserName: member.name,
+                              otherUserRole: member.relation,
+                              residentId: provider.backendResidentId,
+                              accentColor: const Color(0xFF6C63FF),
+                            ),
+                          ),
+                        )
+                    : () => _showFeedbackSnack(
+                        '${member.name} ليس مستخدماً على تطبيق ونس'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHomeActionBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required bool isActive,
+    required bool hc,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: isActive
+                  ? color.withValues(alpha: 0.13)
+                  : (hc ? Colors.white10 : const Color(0xFFF3F4F6)),
+              shape: BoxShape.circle,
+              border: isActive
+                  ? Border.all(color: color.withValues(alpha: 0.4), width: 1.5)
+                  : null,
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: isActive
+                  ? color
+                  : (hc ? Colors.white38 : const Color(0xFFB0B7C3)),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: isActive
+                  ? color
+                  : (hc ? Colors.white38 : const Color(0xFFB0B7C3)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFeedbackSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded,
+                color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(message,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ],
         ),
+        backgroundColor: const Color(0xFF374151),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        duration: const Duration(seconds: 3),
       ),
     );
   }

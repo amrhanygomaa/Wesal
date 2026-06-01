@@ -14,6 +14,7 @@ class FamilyResidentChatScreen extends ConsumerStatefulWidget {
   final String otherUserId;
   final String otherUserName;
   final String? otherUserRole;
+  final String? residentId;
   final Color accentColor;
 
   const FamilyResidentChatScreen({
@@ -21,6 +22,7 @@ class FamilyResidentChatScreen extends ConsumerStatefulWidget {
     required this.otherUserId,
     required this.otherUserName,
     this.otherUserRole,
+    this.residentId,
     this.accentColor = const Color(0xFFea580c),
   });
 
@@ -30,7 +32,8 @@ class FamilyResidentChatScreen extends ConsumerStatefulWidget {
 }
 
 class _FamilyResidentChatScreenState
-    extends ConsumerState<FamilyResidentChatScreen> {
+    extends ConsumerState<FamilyResidentChatScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _inputCtrl = TextEditingController();
   final ScrollController _scrollCtrl = ScrollController();
 
@@ -45,22 +48,34 @@ class _FamilyResidentChatScreenState
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadThread();
     _subscribeRealtime();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _realtimeSub?.cancel();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeMetrics() {
+    final bottomInset = View.of(context).viewInsets.bottom;
+    if (bottomInset > 0) {
+      Future.delayed(const Duration(milliseconds: 150), _scrollToBottom);
+    }
+  }
+
   Future<void> _loadThread() async {
     try {
-      final msgs =
-          await MessagesService.instance.thread(widget.otherUserId);
+      final msgs = await MessagesService.instance.thread(
+        widget.otherUserId,
+        residentId: widget.residentId,
+      );
       if (!mounted) return;
       setState(() {
         _messages = msgs;
@@ -78,13 +93,11 @@ class _FamilyResidentChatScreenState
   }
 
   void _subscribeRealtime() {
-    _realtimeSub = RealtimeService.instance
-        .liveEventsFor({'messages'})
-        .listen((event) {
+    _realtimeSub =
+        RealtimeService.instance.liveEventsFor({'messages'}).listen((event) {
       final data = event['data'];
       if (data is! Map) return;
-      final msg = BackendRoleMessage.fromJson(
-          Map<String, dynamic>.from(data));
+      final msg = BackendRoleMessage.fromJson(Map<String, dynamic>.from(data));
       if (msg.senderId != widget.otherUserId &&
           msg.recipientId != widget.otherUserId) {
         return;
@@ -106,6 +119,7 @@ class _FamilyResidentChatScreenState
       final sent = await MessagesService.instance.send(
         recipientId: widget.otherUserId,
         body: text,
+        residentId: widget.residentId,
       );
       if (!mounted) return;
       setState(() => _messages.add(sent));
@@ -146,8 +160,7 @@ class _FamilyResidentChatScreenState
             ListTile(
               leading: const CircleAvatar(
                   backgroundColor: Color(0xFFE0F2FE),
-                  child: Icon(Icons.image_rounded,
-                      color: Color(0xFF0369A1))),
+                  child: Icon(Icons.image_rounded, color: Color(0xFF0369A1))),
               title: const Text('إرسال صورة'),
               onTap: () async {
                 Navigator.pop(context);
@@ -157,8 +170,8 @@ class _FamilyResidentChatScreenState
             ListTile(
               leading: const CircleAvatar(
                   backgroundColor: Color(0xFFEDE9FE),
-                  child: Icon(Icons.videocam_rounded,
-                      color: Color(0xFF7C3AED))),
+                  child:
+                      Icon(Icons.videocam_rounded, color: Color(0xFF7C3AED))),
               title: const Text('إرسال فيديو'),
               onTap: () {
                 Navigator.pop(context);
@@ -192,8 +205,8 @@ class _FamilyResidentChatScreenState
 
   Future<void> _pickAndSendImage() async {
     try {
-      final XFile? file =
-          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      final XFile? file = await _picker.pickImage(
+          source: ImageSource.gallery, imageQuality: 70);
       if (file == null || !mounted) return;
 
       setState(() => _uploadingAttachment = true);
@@ -206,6 +219,7 @@ class _FamilyResidentChatScreenState
       final sent = await MessagesService.instance.send(
         recipientId: widget.otherUserId,
         body: '📷 صورة',
+        residentId: widget.residentId,
         mediaUrl: upload.mediaUrl ?? upload.id,
         mediaType: 'image',
       );
@@ -247,8 +261,8 @@ class _FamilyResidentChatScreenState
         backgroundColor: widget.accentColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white),
+          icon:
+              const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -257,9 +271,7 @@ class _FamilyResidentChatScreenState
               radius: 18,
               backgroundColor: Colors.white.withValues(alpha: 0.25),
               child: Text(
-                widget.otherUserName.isNotEmpty
-                    ? widget.otherUserName[0]
-                    : '?',
+                widget.otherUserName.isNotEmpty ? widget.otherUserName[0] : '?',
                 style: const TextStyle(
                     color: Colors.white, fontWeight: FontWeight.bold),
               ),
@@ -275,8 +287,8 @@ class _FamilyResidentChatScreenState
                         fontWeight: FontWeight.bold)),
                 if (widget.otherUserRole != null)
                   Text(widget.otherUserRole!,
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 11)),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 11)),
               ],
             ),
           ],
@@ -307,8 +319,7 @@ class _FamilyResidentChatScreenState
               const SizedBox(height: 16),
               const Text('تعذر تحميل المحادثة',
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF475569))),
+                      fontWeight: FontWeight.bold, color: Color(0xFF475569))),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () {
@@ -340,8 +351,7 @@ class _FamilyResidentChatScreenState
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             const Text('ابدأ المحادثة بإرسال رسالة',
-                style: TextStyle(
-                    color: Color(0xFF94a3b8), fontSize: 13)),
+                style: TextStyle(color: Color(0xFF94a3b8), fontSize: 13)),
           ],
         ),
       );
@@ -370,12 +380,9 @@ class _FamilyResidentChatScreenState
           if (!isMe) ...[
             CircleAvatar(
               radius: 14,
-              backgroundColor:
-                  widget.accentColor.withValues(alpha: 0.15),
+              backgroundColor: widget.accentColor.withValues(alpha: 0.15),
               child: Text(
-                widget.otherUserName.isNotEmpty
-                    ? widget.otherUserName[0]
-                    : '?',
+                widget.otherUserName.isNotEmpty ? widget.otherUserName[0] : '?',
                 style: TextStyle(
                     color: widget.accentColor,
                     fontSize: 11,
@@ -386,20 +393,18 @@ class _FamilyResidentChatScreenState
           ],
           Flexible(
             child: Column(
-              crossAxisAlignment: isMe
-                  ? CrossAxisAlignment.end
-                  : CrossAxisAlignment.start,
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     gradient: isMe
                         ? LinearGradient(
                             colors: [
                               widget.accentColor,
-                              widget.accentColor
-                                  .withValues(alpha: 0.75),
+                              widget.accentColor.withValues(alpha: 0.75),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
@@ -409,12 +414,10 @@ class _FamilyResidentChatScreenState
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
                       topRight: const Radius.circular(20),
-                      bottomLeft: isMe
-                          ? const Radius.circular(20)
-                          : Radius.zero,
-                      bottomRight: isMe
-                          ? Radius.zero
-                          : const Radius.circular(20),
+                      bottomLeft:
+                          isMe ? const Radius.circular(20) : Radius.zero,
+                      bottomRight:
+                          isMe ? Radius.zero : const Radius.circular(20),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -429,9 +432,7 @@ class _FamilyResidentChatScreenState
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isMe
-                          ? Colors.white
-                          : const Color(0xFF1e293b),
+                      color: isMe ? Colors.white : const Color(0xFF1e293b),
                       height: 1.5,
                     ),
                   ),
@@ -451,16 +452,13 @@ class _FamilyResidentChatScreenState
 
   Widget _buildInput() {
     return Container(
-      padding: EdgeInsets.fromLTRB(
-          12, 10, 12, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
       color: Colors.white,
       child: Row(
         children: [
           // Attachment button
           GestureDetector(
-            onTap: (_sending || _uploadingAttachment)
-                ? null
-                : _sendAttachment,
+            onTap: (_sending || _uploadingAttachment) ? null : _sendAttachment,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 40,
@@ -474,11 +472,10 @@ class _FamilyResidentChatScreenState
               child: _uploadingAttachment
                   ? const Center(
                       child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2),
-                      ))
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ))
                   : Icon(Icons.attach_file_rounded,
                       color: widget.accentColor, size: 20),
             ),
@@ -486,8 +483,7 @@ class _FamilyResidentChatScreenState
           const SizedBox(width: 8),
           Expanded(
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(30),
@@ -501,11 +497,9 @@ class _FamilyResidentChatScreenState
                 textInputAction: TextInputAction.newline,
                 decoration: const InputDecoration(
                   hintText: 'اكتب رسالتك...',
-                  hintStyle: TextStyle(
-                      fontSize: 13, color: Color(0xFF94a3b8)),
+                  hintStyle: TextStyle(fontSize: 13, color: Color(0xFF94a3b8)),
                   border: InputBorder.none,
-                  contentPadding:
-                      EdgeInsets.symmetric(vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
             ),
@@ -518,9 +512,7 @@ class _FamilyResidentChatScreenState
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: _sending
-                    ? Colors.grey.shade300
-                    : widget.accentColor,
+                color: _sending ? Colors.grey.shade300 : widget.accentColor,
                 shape: BoxShape.circle,
               ),
               child: _sending
@@ -545,9 +537,7 @@ class _FamilyResidentChatScreenState
     final dt = DateTime.tryParse(iso)?.toLocal();
     if (dt == null) return '';
     final now = DateTime.now();
-    if (dt.year == now.year &&
-        dt.month == now.month &&
-        dt.day == now.day) {
+    if (dt.year == now.year && dt.month == now.month && dt.day == now.day) {
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     }
     return '${dt.day}/${dt.month} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';

@@ -900,197 +900,232 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
 
   Widget _buildPersonCard(FamilyMember member, List<Color> gradient, int delay,
       AppRiverpod provider) {
-    bool isOnline = member.isAvailable;
-    String name = member.name;
-    String initials = member.initials;
-    String relation = member.relation;
-    bool hc = provider.isHighContrast;
+    final bool isOnline = member.isAvailable;
+    final bool hasApp = member.userId != null && member.userId!.isNotEmpty;
+    final bool hc = provider.isHighContrast;
+
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 600),
-      curve: Curves.easeOutBack,
-      builder: (context, value, child) {
-        final opacity = value.clamp(0.0, 1.0).toDouble();
-        final scale = 0.95 + (0.05 * value);
-
-        return Transform.scale(
-          scale: scale,
-          child: Opacity(opacity: opacity, child: child),
-        );
-      },
+      duration: Duration(milliseconds: 500 + delay * 80),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value.clamp(0.0, 1.0),
+        child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)), child: child),
+      ),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: hc ? const Color(0xFF252525) : Colors.white,
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(
-              color: isOnline
-                  ? const Color(0xFF6C63FF).withValues(alpha: 0.3)
-                  : (hc ? const Color(0xFF333333) : const Color(0xFFF3F4F6)),
-              width: 1.5),
+            color: isOnline
+                ? const Color(0xFF6C63FF).withValues(alpha: 0.25)
+                : (hc ? const Color(0xFF333333) : const Color(0xFFF0F0F5)),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: isOnline
-                  ? const Color(0xFF6C63FF).withValues(alpha: 0.12)
+                  ? const Color(0xFF6C63FF).withValues(alpha: 0.10)
                   : Colors.black.withValues(alpha: 0.04),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
             )
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Stack(
+            // ── Top row: avatar + name/relation ─────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: isOnline
-                          ? gradient
-                          : [const Color(0xFFE5E7EB), const Color(0xFFD1D5DB)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color:
-                            (isOnline ? gradient[0] : const Color(0xFF9CA3AF))
-                                .withValues(alpha: 0.4),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      )
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
-                if (isOnline)
-                  Positioned(
-                    bottom: 2,
-                    right: 2,
-                    child: Container(
-                      width: 22,
-                      height: 22,
+                // Avatar
+                Stack(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4ade80),
                         shape: BoxShape.circle,
-                        border: Border.all(
-                            color: hc ? const Color(0xFF252525) : Colors.white,
-                            width: 3.5),
+                        gradient: LinearGradient(
+                          colors: isOnline
+                              ? gradient
+                              : [
+                                  const Color(0xFFE5E7EB),
+                                  const Color(0xFFD1D5DB)
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color:
-                                const Color(0xFF4ade80).withValues(alpha: 0.5),
-                            blurRadius: 8,
+                            color: (isOnline
+                                    ? gradient[0]
+                                    : const Color(0xFF9CA3AF))
+                                .withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           )
                         ],
                       ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 20),
-            // Middle: Info + actions under name
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: hc ? Colors.white : const Color(0xFF1a1a1a),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: (isOnline
-                              ? const Color(0xFF6C63FF)
-                              : const Color(0xFF9CA3AF))
-                          .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      relation,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isOnline
-                            ? const Color(0xFF6C63FF)
-                            : const Color(0xFF6B7280),
-                        fontWeight: FontWeight.w800,
+                      child: Center(
+                        child: Text(
+                          member.initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Action buttons under the name
-                  Row(
+                    if (isOnline)
+                      Positioned(
+                        bottom: 1,
+                        right: 1,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4ade80),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  hc ? const Color(0xFF252525) : Colors.white,
+                              width: 2.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                // Name + relation
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildActionCircle(
-                        onTap: () =>
-                            provider.launchZoom(member.zoomLink),
-                        icon: Icons.videocam_rounded,
-                        color: const Color(0xFF6C63FF),
-                        isActive: isOnline,
-                        hc: hc,
+                      Text(
+                        member.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: hc ? Colors.white : const Color(0xFF1a1a1a),
+                          letterSpacing: -0.3,
+                        ),
                       ),
-                      const SizedBox(width: 10),
-                      _buildActionCircle(
-                        onTap: () =>
-                            provider.callPhoneNumber(member.phoneNumber),
-                        icon: Icons.phone_rounded,
-                        color: const Color(0xFF4ade80),
-                        isActive: isOnline,
-                        hc: hc,
-                        isOutlined: true,
-                      ),
-                      const SizedBox(width: 10),
-                      _buildActionCircle(
-                        onTap: member.userId != null
-                            ? () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        FamilyResidentChatScreen(
-                                      otherUserId: member.userId!,
-                                      otherUserName: member.name,
-                                      otherUserRole: member.relation,
-                                      accentColor:
-                                          const Color(0xFF6C63FF),
-                                    ),
-                                  ),
-                                )
-                            : () {},
-                        icon: Icons.chat_bubble_outline_rounded,
-                        color: const Color(0xFFea580c),
-                        isActive: member.userId != null,
-                        hc: hc,
-                        isOutlined: true,
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (isOnline
+                                  ? const Color(0xFF6C63FF)
+                                  : const Color(0xFF9CA3AF))
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          member.relation,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isOnline
+                                ? const Color(0xFF6C63FF)
+                                : const Color(0xFF6B7280),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFF3F4F6)),
+            const SizedBox(height: 12),
+
+            // ── Bottom row: action buttons evenly spaced ─────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                // Video call
+                _buildActionCircle(
+                  onTap: () => provider.launchZoom(member.zoomLink),
+                  icon: Icons.videocam_rounded,
+                  color: const Color(0xFF6C63FF),
+                  isActive: isOnline,
+                  hc: hc,
+                  tooltip: isOnline ? 'مكالمة فيديو' : 'غير متاح',
+                ),
+                // Phone call
+                _buildActionCircle(
+                  onTap: () => provider.callPhoneNumber(member.phoneNumber),
+                  icon: Icons.phone_rounded,
+                  color: const Color(0xFF4ade80),
+                  isActive: member.phoneNumber.isNotEmpty,
+                  hc: hc,
+                  isOutlined: true,
+                  tooltip: 'اتصال هاتفي',
+                ),
+                // Chat
+                _buildActionCircle(
+                  onTap: hasApp
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FamilyResidentChatScreen(
+                                otherUserId: member.userId!,
+                                otherUserName: member.name,
+                                otherUserRole: member.relation,
+                                residentId: provider.backendResidentId,
+                                accentColor: const Color(0xFF6C63FF),
+                              ),
+                            ),
+                          )
+                      : () => _showNotOnAppFeedback(member.name),
+                  icon: Icons.chat_bubble_outline_rounded,
+                  color: const Color(0xFFea580c),
+                  isActive: hasApp,
+                  hc: hc,
+                  isOutlined: true,
+                  tooltip: hasApp ? 'رسالة' : 'ليس على التطبيق',
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showNotOnAppFeedback(String name) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded,
+                color: Colors.white, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '$name ليس مستخدماً على تطبيق ونس حتى الآن',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ),
           ],
         ),
+        backgroundColor: const Color(0xFF374151),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -1102,47 +1137,51 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
     required bool isActive,
     required bool hc,
     bool isOutlined = false,
+    String tooltip = '',
   }) {
-    return GestureDetector(
-      onTap: isActive ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 54,
-        height: 54,
-        decoration: BoxDecoration(
-          color: isOutlined
-              ? (isActive
-                  ? color.withValues(alpha: 0.1)
-                  : (hc ? Colors.white10 : const Color(0xFFF3F4F6)))
-              : (isActive
-                  ? color
-                  : (hc
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : const Color(0xFFE5E7EB))),
-          shape: BoxShape.circle,
-          border: isOutlined && isActive
-              ? Border.all(color: color.withValues(alpha: 0.4), width: 2)
-              : null,
-          boxShadow: !isOutlined && isActive
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : [],
-        ),
-        child: Icon(
-          icon,
-          color: isOutlined
-              ? (isActive
-                  ? color
-                  : (hc ? Colors.white38 : const Color(0xFF9CA3AF)))
-              : (isActive
-                  ? Colors.white
-                  : (hc ? Colors.white38 : const Color(0xFF9CA3AF))),
-          size: 26,
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: isOutlined
+                ? (isActive
+                    ? color.withValues(alpha: 0.12)
+                    : (hc ? Colors.white10 : const Color(0xFFF3F4F6)))
+                : (isActive
+                    ? color
+                    : (hc
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFE5E7EB))),
+            shape: BoxShape.circle,
+            border: isOutlined && isActive
+                ? Border.all(color: color.withValues(alpha: 0.45), width: 1.5)
+                : null,
+            boxShadow: !isOutlined && isActive
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    )
+                  ]
+                : [],
+          ),
+          child: Icon(
+            icon,
+            color: isOutlined
+                ? (isActive
+                    ? color
+                    : (hc ? Colors.white38 : const Color(0xFFB0B7C3)))
+                : (isActive
+                    ? Colors.white
+                    : (hc ? Colors.white38 : const Color(0xFFB0B7C3))),
+            size: 22,
+          ),
         ),
       ),
     );
@@ -1226,18 +1265,18 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
             ...provider.voiceMessages.asMap().entries.map((entry) {
               final index = entry.key;
               final msg = entry.value;
-              final sender = provider.familyMembers.firstWhere(
-                  (m) => m.id == msg.senderId,
-                  orElse: () => provider.familyMembers.isNotEmpty
-                      ? provider.familyMembers.first
-                      : FamilyMember(
-                          id: msg.senderId,
-                          name: 'أحد أفراد العائلة',
-                          relation: 'قريب',
-                          avatarPath: '',
-                          initials: '؟',
-                          phoneNumber: '',
-                        ));
+              final sender =
+                  provider.familyMembers.firstWhere((m) => m.id == msg.senderId,
+                      orElse: () => provider.familyMembers.isNotEmpty
+                          ? provider.familyMembers.first
+                          : FamilyMember(
+                              id: msg.senderId,
+                              name: 'أحد أفراد العائلة',
+                              relation: 'قريب',
+                              avatarPath: '',
+                              initials: '؟',
+                              phoneNumber: '',
+                            ));
               final gradients = [
                 const [Color(0xFFf472b6), Color(0xFFdb2777)],
                 const [Color(0xFF34d399), Color(0xFF059669)],

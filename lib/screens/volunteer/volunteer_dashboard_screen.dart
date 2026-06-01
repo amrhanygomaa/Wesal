@@ -150,7 +150,13 @@ class _VolunteerDashboardScreenState
     final isCertTab = _selectedTab == 3;
     final isRatingTab = _selectedTab == 4;
     final opportunitiesCount = provider.volunteerOpportunities.length;
-    final bookingsSummary = '${provider.volunteerBookings.length} حجوزات مقبلة';
+    final todayStart = _dateOnly(DateTime.now());
+    final upcomingBookingsCount = provider.volunteerBookings
+        .where((booking) =>
+            booking.status == 'confirmed' &&
+            !booking.startTime.isBefore(todayStart))
+        .length;
+    final bookingsSummary = '$upcomingBookingsCount حجوزات مقبلة';
     final certsCount =
         '${provider.volunteerCertificates.where((c) => !c.isLocked).length}';
     final ratingSummary = provider.averageRating > 0
@@ -380,7 +386,7 @@ class _VolunteerDashboardScreenState
                   ),
                 ] else if (_selectedTab == 2) ...[
                   const SizedBox(height: 16),
-                  _buildCalendarStrip(),
+                  _buildCalendarStrip(provider),
                 ],
               ],
             ),
@@ -390,22 +396,59 @@ class _VolunteerDashboardScreenState
     );
   }
 
-  Widget _buildCalendarStrip() {
-    final days = [
-      {'name': 'إث', 'num': '٧', 'hasDot': false},
-      {'name': 'ثلا', 'num': '٨', 'hasDot': true},
-      {'name': 'أحد', 'num': '٦', 'hasDot': true, 'active': true},
-      {'name': 'خمس', 'num': '١٠', 'hasDot': true},
-      {'name': 'أربع', 'num': '١٤', 'hasDot': true},
-      {'name': 'جمع', 'num': '١٨', 'hasDot': false},
-    ];
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  bool _isSameCalendarDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _toArabicDigits(int value) {
+    const digits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return value
+        .toString()
+        .split('')
+        .map((char) =>
+            int.tryParse(char) == null ? char : digits[int.parse(char)])
+        .join();
+  }
+
+  String _weekdayLabel(DateTime date) {
+    const labels = {
+      DateTime.saturday: 'سبت',
+      DateTime.sunday: 'أحد',
+      DateTime.monday: 'إث',
+      DateTime.tuesday: 'ثلا',
+      DateTime.wednesday: 'أربع',
+      DateTime.thursday: 'خمس',
+      DateTime.friday: 'جمع',
+    };
+    return labels[date.weekday] ?? '';
+  }
+
+  bool _hasBookingOnDate(AppRiverpod provider, DateTime date) {
+    return provider.volunteerBookings.any((booking) {
+      return booking.status == 'confirmed' &&
+          _isSameCalendarDay(booking.startTime, date);
+    });
+  }
+
+  Widget _buildCalendarStrip(AppRiverpod provider) {
+    final today = _dateOnly(DateTime.now());
+    final days = List<DateTime>.generate(
+      6,
+      (index) => DateTime(today.year, today.month, today.day + index - 2),
+    );
 
     return SizedBox(
       height: 60,
       child: Row(
+        textDirection: TextDirection.rtl,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: days.map((day) {
-          final isActive = day['active'] == true;
+        children: days.map((date) {
+          final isActive = _isSameCalendarDay(date, today);
+          final hasDot = _hasBookingOnDate(provider, date);
           return Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -419,20 +462,20 @@ class _VolunteerDashboardScreenState
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(day['name'] as String,
+                  Text(_weekdayLabel(date),
                       style: TextStyle(
                           color: isActive
                               ? const Color(0xFF064e3b)
                               : Colors.white.withValues(alpha: 0.75),
                           fontSize: 8,
                           fontWeight: FontWeight.bold)),
-                  Text(day['num'] as String,
+                  Text(_toArabicDigits(date.day),
                       style: TextStyle(
                           color:
                               isActive ? const Color(0xFF064e3b) : Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.bold)),
-                  if (day['hasDot'] == true)
+                  if (hasDot)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
                       width: 5,

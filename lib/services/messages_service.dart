@@ -80,15 +80,22 @@ class BackendMessageThreadSummary {
   });
 
   factory BackendMessageThreadSummary.fromJson(Map<String, dynamic> j) {
+    final rawLastMessage = j['lastMessage'] ?? j['last_message'];
+    final lastMessage = rawLastMessage is Map
+        ? BackendRoleMessage.fromJson(Map<String, dynamic>.from(rawLastMessage))
+        : BackendRoleMessage.fromJson(j);
+    final fallbackOtherUserId = lastMessage.senderId;
+    final rawOtherUserName =
+        (j['otherUserName'] ?? j['other_user_name'] ?? '').toString();
     return BackendMessageThreadSummary(
-      otherUserId: (j['otherUserId'] ?? j['other_user_id'] ?? '').toString(),
+      otherUserId:
+          (j['otherUserId'] ?? j['other_user_id'] ?? fallbackOtherUserId)
+              .toString(),
       otherUserName:
-          (j['otherUserName'] ?? j['other_user_name'] ?? '').toString(),
+          rawOtherUserName.isEmpty ? fallbackOtherUserId : rawOtherUserName,
       otherUserRole:
           (j['otherUserRole'] ?? j['other_user_role'] ?? '').toString(),
-      lastMessage: BackendRoleMessage.fromJson(
-        Map<String, dynamic>.from(j['lastMessage'] as Map),
-      ),
+      lastMessage: lastMessage,
       unreadCount: (j['unreadCount'] as num?)?.toInt() ?? 0,
     );
   }
@@ -120,8 +127,17 @@ class MessagesService {
         .toList();
   }
 
-  Future<List<BackendRoleMessage>> thread(String otherUserId) async {
-    final res = await ApiClient.instance.get('/messages/thread/$otherUserId');
+  Future<List<BackendRoleMessage>> thread(
+    String otherUserId, {
+    String? residentId,
+  }) async {
+    final res = await ApiClient.instance.get(
+      '/messages/thread/$otherUserId',
+      query: {
+        if (residentId != null && residentId.isNotEmpty)
+          'residentId': residentId,
+      },
+    );
     if (res is! List) return [];
     return res
         .whereType<Map>()
@@ -132,14 +148,14 @@ class MessagesService {
   Future<BackendRoleMessage> send({
     required String recipientId,
     required String body,
+    String? residentId,
     String? mediaUrl,
     String? mediaType,
   }) async {
     final res = await ApiClient.instance.post('/messages', body: {
       'recipientId': recipientId,
       'body': body,
-      if (mediaUrl != null && mediaUrl.isNotEmpty) 'mediaUrl': mediaUrl,
-      if (mediaType != null && mediaType.isNotEmpty) 'mediaType': mediaType,
+      if (residentId != null && residentId.isNotEmpty) 'residentId': residentId,
     });
     return BackendRoleMessage.fromJson(Map<String, dynamic>.from(res as Map));
   }

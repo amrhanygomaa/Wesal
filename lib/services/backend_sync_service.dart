@@ -1079,8 +1079,10 @@ class BackendSyncService {
 
   SentReport _sentReportFromJson(Map<String, dynamic> j) {
     final rawType = _s(j['reportType'], fallback: '');
-    final dateStr = _dateLabel(_s(j['createdAt']));
-    final arabicTitle = _reportTypeArabic(rawType, dateStr);
+    final createdAt = _s(j['createdAt']);
+    final dateStr = _dateLabel(createdAt);
+    final titleDate = _fullArabicDateLabel(createdAt);
+    final arabicTitle = _reportTypeArabic(rawType, titleDate);
     final icon = _reportTypeIcon(rawType);
     return SentReport(
       id: _s(j['id']),
@@ -1088,8 +1090,28 @@ class BackendSyncService {
       title: arabicTitle,
       meta: _listOfStrings(j['recipients']).join(', '),
       status: _s(j['status'], fallback: ''),
-      date: dateStr,
+      date: createdAt.isEmpty ? dateStr : createdAt,
     );
+  }
+
+  String _fullArabicDateLabel(String value) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null) return value.isEmpty ? 'من AWS' : value;
+    const months = [
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
+    ];
+    return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
   }
 
   String _reportTypeArabic(String rawType, String date) {

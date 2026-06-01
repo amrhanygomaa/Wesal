@@ -34,6 +34,7 @@ class _AssessmentDetailedScreenState
   final Map<int, int> _scales = {}; // تخزين إجابات المقاييس الرقمية
   final Set<String> _activeNotes = {}; // تخزين الملاحظات المفعلة
   late List<AssessmentQuestion> _questions; // قائمة الأسئلة الحالية
+  bool _isLoadingQuestions = true;
   final TextEditingController _notesController = TextEditingController(
       text: 'المقيم يُبدي علامات قلق متزايدة مؤخراً...'); // متحكم نص الملاحظات
   bool _isInterventionRequired = false; // حالة التدخل الاجتماعي
@@ -42,36 +43,7 @@ class _AssessmentDetailedScreenState
   void initState() {
     super.initState();
 
-    // تحميل الأسئلة ديناميكياً بناءً على نوع التقييم أو استخدام الأسئلة الممررة
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.initialQuestions != null) {
-        setState(() {
-          _questions = widget.initialQuestions!;
-        });
-      } else {
-        final provider = ref.read(appRiverpod);
-        final rawQuestions =
-            provider.getQuestionsForTool(widget.tool?.id ?? 't1');
-        setState(() {
-          _questions = rawQuestions.asMap().entries.map((e) {
-            final i = e.key;
-            final q = e.value;
-            return AssessmentQuestion(
-              id: 'q$i',
-              text: q['text'],
-              type: q['type'],
-              options:
-                  q['options'] != null ? List<String>.from(q['options']) : null,
-            );
-          }).toList();
-        });
-      }
-    });
-
-    // حالة افتراضية للأسئلة أثناء التحميل
-    _questions = [
-      AssessmentQuestion(id: 'ld', text: 'جاري تحميل الأسئلة...', type: 'text')
-    ];
+    _questions = [];
 
     // إعداد الـ Animations
     _fadeController = AnimationController(
@@ -92,6 +64,11 @@ class _AssessmentDetailedScreenState
 
     _fadeController.forward();
     _ringController.forward();
+
+    // تحميل الأسئلة بعد أول frame حتى لا يتعطل فتح الشاشة.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadQuestions();
+    });
   }
 
   @override
@@ -101,6 +78,72 @@ class _AssessmentDetailedScreenState
     _shimmerController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  SocialSpecialistAssessmentTool? _resolvedTool(AppRiverpod provider) {
+    if (widget.tool != null) return widget.tool;
+    if (provider.socialAssessmentTools.isNotEmpty) {
+      return provider.socialAssessmentTools.first;
+    }
+    return null;
+  }
+
+  AssessmentQuestion _questionFromMap(Map<String, dynamic> q, int index) {
+    final options = q['options'];
+    return AssessmentQuestion(
+      id: q['id']?.toString().isNotEmpty == true
+          ? q['id'].toString()
+          : 'q$index',
+      text: (q['text'] ?? q['question'] ?? '').toString(),
+      type: (q['type'] ?? 'scale').toString(),
+      options:
+          options is List ? options.map((e) => e.toString()).toList() : null,
+    );
+  }
+
+  Future<void> _loadQuestions() async {
+    if (widget.initialQuestions != null) {
+      if (!mounted) return;
+      setState(() {
+        _questions = widget.initialQuestions!
+            .where((q) => q.text.trim().isNotEmpty)
+            .toList();
+        _questionIndex = 0;
+        _isLoadingQuestions = false;
+      });
+      return;
+    }
+
+    final provider = ref.read(appRiverpod);
+    final tool = _resolvedTool(provider);
+    var rawQuestions = tool == null
+        ? <Map<String, dynamic>>[]
+        : provider.getQuestionsForTool(tool.id);
+
+    if (rawQuestions.isEmpty && tool != null && tool.id.trim().isNotEmpty) {
+      await provider.loadQuestionsForTool(tool.id);
+      rawQuestions = provider.getQuestionsForTool(tool.id);
+    }
+
+    var loaded = rawQuestions
+        .asMap()
+        .entries
+        .map((entry) {
+          return _questionFromMap(entry.value, entry.key);
+        })
+        .where((q) => q.text.trim().isNotEmpty)
+        .toList();
+
+    if (loaded.isEmpty && provider.gdsQuestions.isNotEmpty) {
+      loaded = List<AssessmentQuestion>.from(provider.gdsQuestions);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _questions = loaded;
+      _questionIndex = 0;
+      _isLoadingQuestions = false;
+    });
   }
 
   @override
@@ -674,10 +717,22 @@ class _AssessmentDetailedScreenState
 
   // بناء منطقة الأسئلة وتوليد التقارير
   Widget _buildQuestionnaire(AppRiverpod provider) {
-    if (widget.tool == null && provider.socialAssessmentTools.isEmpty) {
-      return const SizedBox.shrink();
+    final tool = _resolvedTool(provider);
+    if (tool == null) {
+      return _buildQuestionsEmptyState();
     }
-    final tool = widget.tool ?? provider.socialAssessmentTools[0];
+    if (_isLoadingQuestions) {
+      return _buildQuestionsLoadingState(title: tool.name);
+    }
+    if (_questionIndex >= _questions.length && _questions.isNotEmpty) {
+      _questionIndex = _questions.length - 1;
+    }
+    if (_questions.isEmpty) {
+      return _buildQuestionsEmptyState(title: tool.name);
+    }
+    final progress =
+        ((_questionIndex + 1) / _questions.length).clamp(0.0, 1.0).toDouble();
+
     return FadeTransition(
       opacity: _fadeAnimations[3],
       child: Container(
@@ -755,7 +810,7 @@ class _AssessmentDetailedScreenState
                   color: Colors.white.withValues(alpha: 0.25),
                   child: FractionallySizedBox(
                     alignment: Alignment.centerRight,
-                    widthFactor: (_questionIndex + 1) / _questions.length,
+                    widthFactor: progress,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -838,6 +893,110 @@ class _AssessmentDetailedScreenState
             ),
             const SizedBox(height: 24),
             _buildQuestionNav(), // أزرار التنقل (التالي/السابق)
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionsEmptyState({String? title}) {
+    return FadeTransition(
+      opacity: _fadeAnimations[3],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF7ED),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.assignment_late_rounded,
+                  color: Color(0xFFEA580C), size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title ?? 'أسئلة التقييم غير متاحة',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF1E293B),
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Cairo',
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'لم يتم تحميل أسئلة هذه الأداة من الخادم بعد. جرّب تحديث البيانات أو اختر أداة تقييم أخرى.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                height: 1.6,
+                fontFamily: 'Cairo',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuestionsLoadingState({String? title}) {
+    return FadeTransition(
+      opacity: _fadeAnimations[3],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFF1F5F9), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                color: Color(0xFFEA580C),
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title == null
+                  ? 'جاري تجهيز أسئلة التقييم...'
+                  : 'جاري تجهيز $title...',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF475569),
+                fontWeight: FontWeight.bold,
+                fontFamily: 'Cairo',
+              ),
+            ),
           ],
         ),
       ),
@@ -1698,7 +1857,7 @@ class _AssessmentDetailedScreenState
                 onPressed: () {
                   // حساب الدرجة التقريبية بناءً على عدد الإجابات المختارة
                   final Map<String, double> newScores = {};
-                  if (widget.tool != null) {
+                  if (widget.tool != null && _questions.isNotEmpty) {
                     newScores[widget.tool!.name] =
                         (_selections.length / _questions.length)
                             .clamp(0.1, 1.0);

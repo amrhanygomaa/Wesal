@@ -257,6 +257,82 @@ class AppRiverpod extends ChangeNotifier {
     unawaited(syncBackendData());
   }
 
+  void updateResidentSocialHistory({
+    required String residentId,
+    required String previousProfession,
+    required String socialStatus,
+    required List<String> hobbies,
+  }) {
+    final idx = residentFiles.indexWhere((r) => r.id == residentId);
+    if (idx == -1) return;
+    final r = residentFiles[idx];
+    residentFiles[idx] = SpecialistResidentFile(
+      id: r.id,
+      name: r.name,
+      nameEn: r.nameEn,
+      room: r.room,
+      status: r.status,
+      lastUpdate: r.lastUpdate,
+      categories: r.categories,
+      initials: r.initials,
+      phone: r.phone,
+      age: r.age,
+      familyMembers: r.familyMembers,
+      familyEmail: r.familyEmail,
+      bloodType: r.bloodType,
+      chronicDiseases: r.chronicDiseases,
+      allergies: r.allergies,
+      insuranceInfo: r.insuranceInfo,
+      mobilityStatus: r.mobilityStatus,
+      assistiveDevices: r.assistiveDevices,
+      cognitiveStatus: r.cognitiveStatus,
+      dietType: r.dietType,
+      foodRestrictions: r.foodRestrictions,
+      foodPreferences: r.foodPreferences,
+      previousProfession: previousProfession,
+      hobbies: hobbies,
+      socialStatus: socialStatus,
+      uploadedDocuments: r.uploadedDocuments,
+    );
+    notifyListeners();
+  }
+
+  void addDocumentToResident(String residentId, String documentUrl) {
+    final idx = residentFiles.indexWhere((r) => r.id == residentId);
+    if (idx == -1) return;
+    final r = residentFiles[idx];
+    final updated = List<String>.from(r.uploadedDocuments ?? [])..add(documentUrl);
+    residentFiles[idx] = SpecialistResidentFile(
+      id: r.id,
+      name: r.name,
+      nameEn: r.nameEn,
+      room: r.room,
+      status: r.status,
+      lastUpdate: r.lastUpdate,
+      categories: r.categories,
+      initials: r.initials,
+      phone: r.phone,
+      age: r.age,
+      familyMembers: r.familyMembers,
+      familyEmail: r.familyEmail,
+      bloodType: r.bloodType,
+      chronicDiseases: r.chronicDiseases,
+      allergies: r.allergies,
+      insuranceInfo: r.insuranceInfo,
+      mobilityStatus: r.mobilityStatus,
+      assistiveDevices: r.assistiveDevices,
+      cognitiveStatus: r.cognitiveStatus,
+      dietType: r.dietType,
+      foodRestrictions: r.foodRestrictions,
+      foodPreferences: r.foodPreferences,
+      previousProfession: r.previousProfession,
+      hobbies: r.hobbies,
+      socialStatus: r.socialStatus,
+      uploadedDocuments: updated,
+    );
+    notifyListeners();
+  }
+
   AppRiverpod() {
     _loadAuthState(); // تحميل حالة الدخول عند بدء تشغيل المزود
   }
@@ -4887,13 +4963,141 @@ class AppRiverpod extends ChangeNotifier {
   // Auto-Generated Family Updates
   String latestFamilyUpdate = "";
   Future<void> fetchFamilyUpdate() async {
-    if (backendResidentId != null) {
-      latestFamilyUpdate = await AiService.instance.generateFamilyWeeklyUpdate(backendResidentId!);
-      notifyListeners();
-    } else if (residentFiles.isNotEmpty) {
-      latestFamilyUpdate = await AiService.instance.generateFamilyWeeklyUpdate(residentFiles.first.id);
-      notifyListeners();
+    final residentId = _familyUpdateResidentId();
+    var generatedUpdate = '';
+
+    if (residentId != null) {
+      try {
+        generatedUpdate =
+            (await AiService.instance.generateFamilyWeeklyUpdate(residentId))
+                .trim();
+      } catch (_) {
+        generatedUpdate = '';
+      }
     }
+
+    latestFamilyUpdate = generatedUpdate.isNotEmpty
+        ? generatedUpdate
+        : _buildLocalFamilyWeeklyUpdate();
+    notifyListeners();
+  }
+
+  String? _familyUpdateResidentId() {
+    if (_looksLikeBackendId(backendResidentId)) return backendResidentId;
+
+    final linkedResidentId = currentAccount?.linkedResidentId;
+    if (_looksLikeBackendId(linkedResidentId)) return linkedResidentId;
+
+    for (final resident in residentFiles) {
+      if (_looksLikeBackendId(resident.id)) return resident.id;
+    }
+    return null;
+  }
+
+  String _familyUpdateResidentName() {
+    final linkedResidentId = currentAccount?.linkedResidentId;
+    for (final resident in residentFiles) {
+      if (resident.id == linkedResidentId && resident.name.trim().isNotEmpty) {
+        return resident.name.trim();
+      }
+    }
+
+    if (residentFiles.isNotEmpty &&
+        residentFiles.first.name.trim().isNotEmpty) {
+      return residentFiles.first.name.trim();
+    }
+    return 'والدك';
+  }
+
+  String _metricStatusArabic(String status) {
+    switch (status) {
+      case 'good':
+        return 'ممتاز';
+      case 'medium':
+        return 'يحتاج متابعة';
+      case 'critical':
+        return 'يحتاج انتباه';
+      default:
+        return status.isEmpty ? 'مستقر' : status;
+    }
+  }
+
+  String _shortFamilyUpdateText(String value, {int maxLength = 100}) {
+    final text = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (text.length <= maxLength) return text;
+    return '${text.substring(0, maxLength).trim()}...';
+  }
+
+  String _buildLocalFamilyWeeklyUpdate() {
+    final residentName = _familyUpdateResidentName();
+    final observations = <String>[];
+
+    if (familyHealthMetrics.isNotEmpty) {
+      final metrics = familyHealthMetrics.take(4).map((metric) {
+        final percent = (metric.value * 100).round();
+        return '${metric.label} $percent% (${_metricStatusArabic(metric.status)})';
+      }).join('، ');
+      observations.add('مؤشرات اليوم: $metrics.');
+    }
+
+    final todayMedications =
+        medications.where((med) => med.dayTag == 'اليوم').toList();
+    if (todayMedications.isNotEmpty) {
+      final confirmed = todayMedications
+          .where((med) => med.isTaken || med.isElderlyConfirmed)
+          .length;
+      final missed = todayMedications.where((med) => med.isMissed).length;
+      final skipped = todayMedications.where((med) => med.isSkipped).length;
+      final details = <String>[
+        'تم تأكيد $confirmed من ${todayMedications.length} جرعات اليوم',
+        if (missed > 0) '$missed جرعات تحتاج مراجعة',
+        if (skipped > 0) '$skipped جرعات تم تجاوزها',
+      ];
+      observations.add('الأدوية: ${details.join('، ')}.');
+    }
+
+    final currentActivities = activities
+        .where((activity) =>
+            activity.dayTag == 'اليوم' || activity.dayTag == 'الأسبوع')
+        .toList();
+    if (currentActivities.isNotEmpty) {
+      final done = currentActivities
+          .where((activity) => activity.status == 'done')
+          .length;
+      observations.add(
+          'الأنشطة: تم إنجاز $done من ${currentActivities.length} نشاط مسجل.');
+    }
+
+    if (currentMood.trim().isNotEmpty) {
+      observations.add('المزاج المسجل حالياً: ${currentMood.trim()}.');
+    }
+
+    if (careReports.isNotEmpty) {
+      final report = careReports.first;
+      final summary = _shortFamilyUpdateText(report.summary);
+      if (summary.isNotEmpty) {
+        observations.add('آخر تقرير رعاية: $summary.');
+      }
+    }
+
+    final nextVisit = familyVisits.cast<FamilyVisit?>().firstWhere(
+          (visit) =>
+              visit != null &&
+              (visit.status == 'pending' || visit.status == 'upcoming'),
+          orElse: () => null,
+        );
+    if (nextVisit != null) {
+      observations.add(
+          'هناك زيارة عائلية ${nextVisit.status == 'pending' ? 'بانتظار التأكيد' : 'قادمة'} يوم ${nextVisit.date} الساعة ${nextVisit.time}.');
+    }
+
+    if (observations.isEmpty) return '';
+
+    return [
+      'تحديث هذا الأسبوع عن $residentName:',
+      ...observations.take(5).map((item) => '- $item'),
+      'الخلاصة: الحالة مستقرة إجمالاً، واستمرار المتابعة اليومية والتواصل مع الفريق يساعد على ملاحظة أي تغير مبكراً.',
+    ].join('\n');
   }
 
   // Cognitive Games

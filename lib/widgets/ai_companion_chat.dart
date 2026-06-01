@@ -775,73 +775,12 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
   String _aiResponse = '';
   String _errorMessage = '';
 
-  static const _colorListening = Color(0xFF27AE60);
-  static const _colorThinking = Color(0xFF8B5CF6);
-  static const _colorSpeaking = Color(0xFF1976D2);
-  static const _colorIdle = Color(0xFF4A6FE3);
   static const _colorError = Color(0xFFEF4444);
 
   bool get _isMicPermissionError =>
       _errorMessage.contains('ميكروفون') ||
       _errorMessage.contains('صلاحية') ||
       _errorMessage.contains('permission');
-
-  Color get _stateColor {
-    if (_errorMessage.isNotEmpty) return _colorError;
-    switch (_state) {
-      case _VoiceState.listening:
-        return _colorListening;
-      case _VoiceState.thinking:
-        return _colorThinking;
-      case _VoiceState.speaking:
-        return _colorSpeaking;
-      case _VoiceState.done:
-        return _colorListening;
-      default:
-        return _colorIdle;
-    }
-  }
-
-  /// Main state label — uses the plan's specified Arabic copy.
-  String get _stateLabel {
-    if (_errorMessage.isNotEmpty) {
-      return _isMicPermissionError
-          ? 'تعذّر الوصول للميكروفون'
-          : 'حدث خطأ';
-    }
-    switch (_state) {
-      case _VoiceState.idle:
-        return 'اضغط على الميكروفون وابدأ الحديث';
-      case _VoiceState.listening:
-        return 'أنا أستمع إليك الآن...';
-      case _VoiceState.thinking:
-        return 'جاري فهم طلبك...';
-      case _VoiceState.speaking:
-        return 'ونس يرد عليك...';
-      case _VoiceState.done:
-        return 'اضغط على الميكروفون وابدأ الحديث';
-    }
-  }
-
-  /// Sub-label shown beneath the main state label.
-  String get _subLabel {
-    if (_isMicPermissionError) {
-      return 'يرجى السماح باستخدام الميكروفون لتتمكن من التحدث مع ونس';
-    }
-    if (_errorMessage.isNotEmpty) return _errorMessage;
-    switch (_state) {
-      case _VoiceState.idle:
-        return 'تحدث بحرية — ونس يستمع ويساعدك';
-      case _VoiceState.listening:
-        return 'استمر في الحديث...';
-      case _VoiceState.thinking:
-        return 'يعالج ونس ما قلته...';
-      case _VoiceState.speaking:
-        return 'انتظر حتى ينهي ونس ردّه، أو اضغط للمقاطعة';
-      case _VoiceState.done:
-        return 'تحدث بحرية — ونس يستمع ويساعدك';
-    }
-  }
 
   @override
   void initState() {
@@ -1156,370 +1095,356 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
     Navigator.pop(context);
   }
 
-  // ── الموجة الصوتية ────────────────────────────────────────────────
-  Widget _buildWaveform() {
-    final active =
+  // ── ألوان الحالة المحدّثة ─────────────────────────────────────────
+  // idle/done → برتقالي دافئ، listening → بنفسجي، thinking → برتقالي، speaking → بنفسجي
+  Color get _stateColor {
+    if (_errorMessage.isNotEmpty) return _colorError;
+    switch (_state) {
+      case _VoiceState.listening:
+        return const Color(0xFF7C3AED);
+      case _VoiceState.thinking:
+        return const Color(0xFFE59C2F);
+      case _VoiceState.speaking:
+        return const Color(0xFF7C3AED);
+      case _VoiceState.done:
+        return const Color(0xFFE59C2F);
+      default:
+        return const Color(0xFFE59C2F);
+    }
+  }
+
+  // ── روبوت مرسوم بـ Flutter ────────────────────────────────────────
+  Widget _buildRobotIllustration() {
+    final bool active =
         _state == _VoiceState.listening || _state == _VoiceState.speaking;
     return AnimatedBuilder(
-      animation: _waveCtrl,
+      animation: _ringCtrl,
       builder: (_, __) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: List.generate(11, (i) {
-            final phase = i / 11.0;
-            final t = _waveCtrl.value;
-            final h =
-                active ? 8 + 32 * ((sin((t - phase) * 2 * pi) + 1) / 2) : 6.0;
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 80),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: 6,
-              height: h,
-              decoration: BoxDecoration(
-                color: _stateColor.withValues(alpha: active ? 0.85 : 0.3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-            );
-          }),
-        );
-      },
-    );
-  }
-
-  // ── الهيدر ─────────────────────────────────────────────────────────
-  Widget _buildElderlyHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // أيقونة وناس مع توهج بنفسجي
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const RadialGradient(
-              colors: [Color(0xFF818CF8), Color(0xFF6366F1)],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF6366F1).withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.auto_awesome_rounded,
-              color: Colors.white, size: 26),
-        ),
-        const SizedBox(width: 14),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'وناس',
-              style: TextStyle(
-                color: Color(0xFF1A1A2E),
-                fontFamily: 'Cairo',
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Text(
-              'مساعدك الذكي • دائماً معك',
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-                fontFamily: 'Cairo',
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        GestureDetector(
-          onTap: _close,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-                Icons.close_rounded, color: Color(0xFF6B7280), size: 22),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ── نص الحالة الكبير ───────────────────────────────────────────────
-  Widget _buildStateLabel() {
-    final isError = _errorMessage.isNotEmpty;
-    final mainColor = isError ? _colorError : const Color(0xFF1A1A2E);
-    final subColor = isError ? _colorError : const Color(0xFF7C3AED);
-
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 280),
-      child: Column(
-        key: ValueKey(_stateLabel),
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _stateLabel,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: mainColor,
-              fontFamily: 'Cairo',
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              _subLabel,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: subColor.withValues(alpha: 0.85),
-                fontFamily: 'Cairo',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── بانر خطأ الصلاحية ─────────────────────────────────────────────
-  Widget _buildPermissionBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFCA5A5), width: 1.5),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.mic_off_rounded,
-              color: Color(0xFFDC2626), size: 28),
-          SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              'يرجى السماح باستخدام الميكروفون لتتمكن من التحدث مع ونس',
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: Color(0xFF991B1B),
-                fontFamily: 'Cairo',
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── زر الميكروفون الكبير ──────────────────────────────────────────
-  Widget _buildMicButton(bool active, IconData actionIcon) {
-    return GestureDetector(
-      onTap: _onOrbTap,
-      child: AnimatedBuilder(
-        animation: _ringCtrl,
-        builder: (_, __) {
-          return SizedBox(
+        final float = sin(_ringCtrl.value * 2 * pi) * 4;
+        return Transform.translate(
+          offset: Offset(0, float),
+          child: SizedBox(
             width: 220,
             height: 220,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                if (active)
-                  Container(
-                    width: 140 + 60 * _ringCtrl.value,
-                    height: 140 + 60 * _ringCtrl.value,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _stateColor.withValues(
-                          alpha: 0.28 * (1 - _ringCtrl.value),
-                        ),
-                        width: 2.5,
+                // Decorative elements
+                Positioned(
+                    top: 18, left: 28,
+                    child: _deco(Icons.settings, 22, const Color(0xFF7C3AED), 0.7)),
+                Positioned(
+                    top: 40, right: 22,
+                    child: _deco(Icons.settings, 16, const Color(0xFF7C3AED), 0.5)),
+                Positioned(
+                    top: 56, left: 14,
+                    child: _decoCircle(8, const Color(0xFF7C3AED), 0.5)),
+                Positioned(
+                    top: 32, right: 58,
+                    child: _decoX(const Color(0xFF7C3AED), 0.5)),
+                Positioned(
+                    top: 78, left: 44,
+                    child: _decoX(const Color(0xFF7C3AED), 0.4)),
+                Positioned(
+                    top: 72, right: 30,
+                    child: _decoX(const Color(0xFF7C3AED), 0.35)),
+                Positioned(
+                    bottom: 48, right: 18,
+                    child: _decoX(const Color(0xFF7C3AED), 0.3)),
+                Positioned(
+                    bottom: 60, left: 10,
+                    child: _decoCircle(5, const Color(0xFF7C3AED), 0.35)),
+
+                // Robot body
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Head
+                    Container(
+                      width: 110,
+                      height: 82,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0EEF8),
+                        borderRadius: BorderRadius.circular(40),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Ears
+                          Positioned(
+                            left: -10,
+                            top: 22,
+                            child: Container(
+                              width: 18, height: 26,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E0EE),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: -10,
+                            top: 22,
+                            child: Container(
+                              width: 18, height: 26,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E0EE),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          // Visor / screen
+                          Container(
+                            width: 74,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1A1A2E),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _eyeBar(active),
+                                const SizedBox(width: 10),
+                                _eyeBar(active),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                if (active)
-                  Container(
-                    width: 164,
-                    height: 164,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _stateColor.withValues(alpha: 0.12),
-                    ),
-                  ),
-                Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        _stateColor,
-                        _stateColor.withValues(alpha: 0.75),
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _stateColor.withValues(
-                          alpha: active ? 0.42 : 0.22,
-                        ),
-                        blurRadius: active ? 36 : 18,
-                        spreadRadius: active ? 4 : 0,
+                    const SizedBox(height: 4),
+                    // Neck
+                    Container(
+                      width: 24,
+                      height: 12,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE2E0EE),
                       ),
-                    ],
-                  ),
-                  child: Icon(actionIcon, color: Colors.white, size: 64),
+                    ),
+                    // Body
+                    Container(
+                      width: 80,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0EEF8),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          )
+                        ],
+                      ),
+                    ),
+                    // Shadow
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 60,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _eyeBar(bool active) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: 8,
+      height: active ? 22 : 14,
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C3AED),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: active
+            ? [BoxShadow(color: const Color(0xFF7C3AED).withValues(alpha: 0.6), blurRadius: 8)]
+            : [],
       ),
     );
   }
 
-  // ── منطقة المحادثة ────────────────────────────────────────────────
-  Widget _buildConversationArea() {
-    if (_userSpoken.isEmpty && _aiResponse.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.record_voice_over_rounded,
-              color: Color(0xFFD1D5DB),
-              size: 52,
+  Widget _deco(IconData icon, double size, Color color, double opacity) =>
+      Opacity(opacity: opacity, child: Icon(icon, color: color, size: size));
+
+  Widget _decoCircle(double r, Color color, double opacity) => Opacity(
+      opacity: opacity,
+      child: Container(
+          width: r * 2, height: r * 2,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 1.5),
+          )));
+
+  Widget _decoX(Color color, double opacity) => Opacity(
+      opacity: opacity,
+      child: Text('×', style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)));
+
+  // ── موجة صوتية ───────────────────────────────────────────────────
+  Widget _buildWaveform() {
+    final active =
+        _state == _VoiceState.listening || _state == _VoiceState.speaking;
+    return AnimatedBuilder(
+      animation: _waveCtrl,
+      builder: (_, __) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: List.generate(11, (i) {
+          final phase = i / 11.0;
+          final t = _waveCtrl.value;
+          final h = active ? 6 + 26 * ((sin((t - phase) * 2 * pi) + 1) / 2) : 5.0;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 80),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: 5,
+            height: h,
+            decoration: BoxDecoration(
+              color: _stateColor.withValues(alpha: active ? 0.9 : 0.0),
+              borderRadius: BorderRadius.circular(3),
             ),
-            SizedBox(height: 16),
-            Text(
-              'اضغط على الميكروفون وتكلم',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF9CA3AF),
-                fontFamily: 'Cairo',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── نص الحالة المحدّث ────────────────────────────────────────────
+  String get _stateLabel {
+    if (_errorMessage.isNotEmpty) {
+      return _isMicPermissionError ? 'تعذّر الوصول للميكروفون' : 'حدث خطأ';
     }
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        children: [
-          if (_userSpoken.isNotEmpty)
-            _buildMessage(
-              label: 'أنت قلت:',
-              text: _userSpoken,
-              color: const Color(0xFF27AE60),
-              alignRight: true,
-            ),
-          if (_aiResponse.isNotEmpty)
-            _buildMessage(
-              label: 'وناس قال:',
-              text: _aiResponse,
-              color: const Color(0xFF1976D2),
-              alignRight: false,
-            ),
+    switch (_state) {
+      case _VoiceState.idle:
+        return 'اضغط للحديث مع وناس';
+      case _VoiceState.listening:
+        return 'أتحدث إليك...';
+      case _VoiceState.thinking:
+        return 'أفكر معك لحظة...';
+      case _VoiceState.speaking:
+        return 'أتحدث إليك...';
+      case _VoiceState.done:
+        return 'اضغط للحديث مع وناس';
+    }
+  }
+
+  String get _subLabel {
+    if (_isMicPermissionError) return 'يرجى السماح باستخدام الميكروفون';
+    if (_errorMessage.isNotEmpty) return _errorMessage;
+    switch (_state) {
+      case _VoiceState.idle:
+      case _VoiceState.done:
+        return 'انتظر لحظة...';
+      case _VoiceState.listening:
+        return 'استمر في الحديث...';
+      case _VoiceState.thinking:
+        return 'يعالج وناس ما قلته...';
+      case _VoiceState.speaking:
+        return 'اضغط للمقاطعة';
+    }
+  }
+
+  // ── فقاعة النص (ما قاله المستخدم أو الذكاء) ────────────────────
+  Widget _buildSpeechBubble() {
+    final text = _userSpoken.isNotEmpty
+        ? _userSpoken
+        : (_aiResponse.isNotEmpty ? _aiResponse : null);
+    if (text == null) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 3)),
         ],
       ),
-    );
-  }
-
-  Widget _buildMessage({
-    required String label,
-    required String text,
-    required Color color,
-    required bool alignRight,
-  }) {
-    return Align(
-      alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 500),
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.22), width: 1.5),
-        ),
-        child: Column(
-          crossAxisAlignment:
-              alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontFamily: 'Cairo',
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              text,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: Color(0xFF1F2937),
-                fontFamily: 'Cairo',
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                height: 1.7,
-              ),
-            ),
-          ],
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.rtl,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF374151),
+          fontFamily: 'Cairo',
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          height: 1.6,
         ),
       ),
     );
   }
 
-  // ── زر الإغلاق العريض ─────────────────────────────────────────────
-  Widget _buildCloseButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 60,
-      child: OutlinedButton.icon(
-        onPressed: _close,
-        icon: const Icon(Icons.close_rounded, size: 24),
-        label: const Text(
-          'إغلاق',
-          style: TextStyle(
-            fontFamily: 'Cairo',
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF6B7280),
-          side: const BorderSide(color: Color(0xFFD1D5DB), width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+  // ── زر المايك ────────────────────────────────────────────────────
+  Widget _buildMicButton(bool active, IconData actionIcon) {
+    return GestureDetector(
+      onTap: _onOrbTap,
+      child: AnimatedBuilder(
+        animation: _ringCtrl,
+        builder: (_, __) => SizedBox(
+          width: 160,
+          height: 160,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer pulse ring
+              if (active)
+                Container(
+                  width: 128 + 28 * _ringCtrl.value,
+                  height: 128 + 28 * _ringCtrl.value,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _stateColor.withValues(
+                        alpha: 0.15 * (1 - _ringCtrl.value)),
+                  ),
+                ),
+              // Inner glow
+              if (active)
+                Container(
+                  width: 118,
+                  height: 118,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _stateColor.withValues(alpha: 0.12),
+                  ),
+                ),
+              // Main button
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _stateColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: _stateColor.withValues(alpha: active ? 0.5 : 0.3),
+                      blurRadius: active ? 28 : 14,
+                      spreadRadius: active ? 3 : 0,
+                    ),
+                  ],
+                ),
+                child: Icon(actionIcon, color: Colors.white, size: 38),
+              ),
+            ],
           ),
         ),
       ),
@@ -1541,58 +1466,160 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen>
 
     final isListening = _state == _VoiceState.listening;
     final isSpeaking = _state == _VoiceState.speaking;
+    final isThinking = _state == _VoiceState.thinking;
     final active = isListening || isSpeaking;
 
     final actionIcon = isListening
         ? Icons.stop_rounded
         : isSpeaking
-            ? Icons.call_split_rounded
+            ? Icons.mic_off_rounded
             : Icons.mic_rounded;
 
+    // Label color: برتقالي للـ thinking/idle/done، بنفسجي للـ listening/speaking
+    final labelColor = (isListening || isSpeaking)
+        ? const Color(0xFF7C3AED)
+        : isThinking
+            ? const Color(0xFFE59C2F)
+            : const Color(0xFFE59C2F);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F3FF),
+      backgroundColor: const Color(0xFFF5EDD8),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF0EEFF),
-              Color(0xFFEDE9FE),
-              Color(0xFFF5F3FF),
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFAF3E8), Color(0xFFF0E6CE)],
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              children: [
-                _buildElderlyHeader(),
-                const SizedBox(height: 24),
-                _buildStateLabel(),
-                if (_isMicPermissionError) ...[
-                  const SizedBox(height: 16),
-                  _buildPermissionBanner(),
-                ],
-                const SizedBox(height: 24),
-                _buildMicButton(active, actionIcon),
-                const SizedBox(height: 16),
-                // موجة صوتية تظهر عند الاستماع أو التحدث
-                SizedBox(
-                  height: 48,
-                  child: AnimatedOpacity(
-                    opacity: active ? 1.0 : 0.3,
-                    duration: const Duration(milliseconds: 400),
-                    child: _buildWaveform(),
+          child: Column(
+            children: [
+              // ── X button top-right ───────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: GestureDetector(
+                    onTap: _close,
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2)),
+                        ],
+                      ),
+                      child: const Icon(Icons.close_rounded,
+                          color: Color(0xFF6B7280), size: 20),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Expanded(child: _buildConversationArea()),
-                const SizedBox(height: 12),
-                _buildCloseButton(),
-              ],
-            ),
+              ),
+
+              // ── Robot illustration (expands) ────────────────────
+              Expanded(
+                flex: 5,
+                child: Center(child: _buildRobotIllustration()),
+              ),
+
+              // ── State label ──────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Text(
+                    _stateLabel,
+                    key: ValueKey(_stateLabel),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: labelColor,
+                      fontFamily: 'Cairo',
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Waveform (only when active) ──────────────────────
+              SizedBox(
+                height: 40,
+                child: AnimatedOpacity(
+                  opacity: active ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 350),
+                  child: _buildWaveform(),
+                ),
+              ),
+
+              // ── Speech bubble ────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: _buildSpeechBubble(),
+              ),
+
+              // ── Permission error ─────────────────────────────────
+              if (_isMicPermissionError)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.mic_off_rounded,
+                            color: Color(0xFFDC2626), size: 22),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'يرجى السماح باستخدام الميكروفون',
+                            style: TextStyle(
+                                color: Color(0xFF991B1B),
+                                fontFamily: 'Cairo',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
+              // ── Mic button ───────────────────────────────────────
+              _buildMicButton(active, actionIcon),
+
+              const SizedBox(height: 10),
+
+              // ── Sub-label below mic ──────────────────────────────
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: Text(
+                  _subLabel,
+                  key: ValueKey(_subLabel),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color(0xFF6B7280).withValues(alpha: 0.9),
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+            ],
           ),
         ),
       ),

@@ -185,15 +185,50 @@ class AiService {
 
   // 1. تلخيص الشيفت
   Future<String> summarizeShiftHandoff(List<NursingNote> notes, List<CareTask> tasks) async {
-    final res = await ApiClient.instance.post(
-      '/ai/summarize-shift',
-      body: {
-        'notes': notes.map((e) => e.content).toList(),
-        'tasks': tasks.map((e) => e.title).toList(),
-      },
-      auth: true,
-    );
-    return res['summary']?.toString() ?? 'تم التلخيص بنجاح.';
+    try {
+      final res = await ApiClient.instance.post(
+        '/ai/summarize-shift',
+        body: {
+          'notes': notes.map((e) => e.content).toList(),
+          'tasks': tasks.map((e) => e.title).toList(),
+        },
+        auth: true,
+      );
+      final summary = res['summary']?.toString();
+      if (summary != null && summary.isNotEmpty) return summary;
+    } catch (_) {
+      // fallback to local summary below
+    }
+    return _buildLocalShiftSummary(notes, tasks);
+  }
+
+  String _buildLocalShiftSummary(List<NursingNote> notes, List<CareTask> tasks) {
+    final buffer = StringBuffer();
+
+    if (notes.isEmpty && tasks.isEmpty) {
+      return 'لا توجد ملاحظات أو مهام مسجلة في هذه الوردية.';
+    }
+
+    if (notes.isNotEmpty) {
+      buffer.writeln('سُجِّلت ${notes.length} ملاحظة تمريضية خلال الوردية.');
+      final residents = notes.map((n) => n.residentName).toSet();
+      if (residents.isNotEmpty) {
+        buffer.writeln('المقيمون الذين تمت متابعتهم: ${residents.join('، ')}.');
+      }
+    }
+
+    final completed = tasks.where((t) => t.isCompleted).length;
+    final total = tasks.length;
+    if (total > 0) {
+      buffer.writeln('مهام الرعاية: $completed/$total مهمة مكتملة.');
+      final pending = tasks.where((t) => !t.isCompleted).take(3).map((t) => t.title).toList();
+      if (pending.isNotEmpty) {
+        buffer.writeln('المهام المعلقة: ${pending.join('، ')}.');
+      }
+    }
+
+    buffer.write('يُرجى مراجعة الحالات المسجلة وضمان استمرارية الرعاية.');
+    return buffer.toString().trim();
   }
 
   // 2. الخطة الغذائية الذكية

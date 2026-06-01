@@ -34,16 +34,33 @@ class BackendMutationService {
 
   Future<void> createFamilyMemberForEmail({
     required String residentId,
-    required String email,
+    String? email,
+    String? fullName,
+    String relationship = 'عائلة',
   }) {
-    final localPart = email.split('@').first.trim();
+    final derivedName = fullName?.trim().isNotEmpty == true
+        ? fullName!
+        : (email != null ? email.split('@').first.trim() : 'فرد العائلة');
     return ApiClient.instance.post('/family-members', body: {
       'residentId': residentId,
-      'fullName': localPart.isEmpty ? email : localPart,
-      'relationship': 'family',
-      'email': email,
+      'fullName': derivedName,
+      'relationship': relationship,
+      if (email != null && email.isNotEmpty) 'email': email,
       'isPrimary': false,
     });
+  }
+
+  Future<void> updateFamilyMemberEmail({
+    required String memberId,
+    required String email,
+  }) {
+    return ApiClient.instance.patch('/family-members/$memberId', body: {
+      'email': email,
+    });
+  }
+
+  Future<void> deleteFamilyMember(String memberId) {
+    return ApiClient.instance.delete('/family-members/$memberId');
   }
 
   // إنشاء قريب من جهة اتصال الهاتف — يُرجع id الباك اند أو null عند الفشل
@@ -273,7 +290,7 @@ class BackendMutationService {
       'visitDate': _dateOnly(visitDate),
       'visitTimeStart': start,
       'visitTimeEnd': _plusOneHour(start),
-      'visitType': visit.type,
+      'notes': 'visitType:${visit.type}',
     });
   }
 
@@ -578,9 +595,15 @@ class BackendMutationService {
   static String _validTime(String value) {
     // Normalize Arabic-Indic numerals (٠١٢٣٤٥٦٧٨٩) to ASCII digits
     final normalized = value
-        .replaceAll('٠', '0').replaceAll('١', '1').replaceAll('٢', '2')
-        .replaceAll('٣', '3').replaceAll('٤', '4').replaceAll('٥', '5')
-        .replaceAll('٦', '6').replaceAll('٧', '7').replaceAll('٨', '8')
+        .replaceAll('٠', '0')
+        .replaceAll('١', '1')
+        .replaceAll('٢', '2')
+        .replaceAll('٣', '3')
+        .replaceAll('٤', '4')
+        .replaceAll('٥', '5')
+        .replaceAll('٦', '6')
+        .replaceAll('٧', '7')
+        .replaceAll('٨', '8')
         .replaceAll('٩', '9');
     final match = RegExp(r'\d{1,2}:\d{2}').firstMatch(normalized);
     if (match == null) return '09:00';
