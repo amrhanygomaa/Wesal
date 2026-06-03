@@ -2,13 +2,18 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:photo_manager/photo_manager.dart';
 import '../../providers/app_riverpod.dart';
 import '../../models/app_models.dart';
 import '../../config/api_config.dart';
+import '../../services/api_client.dart';
 import '../../services/family_media_service.dart';
+import '../../widgets/authenticated_network_image.dart';
 import '../../widgets/taptaba_scaffold.dart';
+import '../elderly/full_screen_image_screen.dart';
 
 // شاشة "جسر العائلة" - تتيح للأقارب التواصل مع المقيم عبر الصور والرسائل الصوتية
 class FamilyBridgeScreen extends ConsumerStatefulWidget {
@@ -79,18 +84,19 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
       provider.backendSyncError = 'لا يوجد مقيم مربوط من السيرفر';
     } else if (type == 'صورة' && imagePath != null) {
       final localPath = await provider.persistAlbumImage(imagePath);
-      final localId = 'local_family_${DateTime.now().millisecondsSinceEpoch}';
-      final localMoment = MemoryMoment(
-        id: localId,
-        residentId: residentId,
-        residentName: residentName,
-        imageUrl: localPath,
-        activityTitle: title,
-        date: 'الآن',
-        appreciations: 0,
+      final localMomentId =
+          'local_family_${DateTime.now().millisecondsSinceEpoch}';
+      provider.upsertMemoryMoment(
+        MemoryMoment(
+          id: localMomentId,
+          residentId: residentId,
+          residentName: residentName,
+          imageUrl: localPath,
+          activityTitle: title,
+          date: 'الآن',
+          appreciations: 0,
+        ),
       );
-      provider.upsertMemoryMoment(localMoment);
-      completed = true;
       setState(() => _uploadProgress = 0.35);
       try {
         final uploaded = await FamilyMediaService.instance.uploadImage(
@@ -100,29 +106,37 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
         );
         setState(() => _uploadProgress = 0.7);
         final remoteUrl = (uploaded.mediaUrl ?? '').trim();
+        if (remoteUrl.isEmpty) {
+          throw ApiException(500, 'لم يرجع السيرفر رابط الصورة بعد الرفع');
+        }
         provider.upsertMemoryMoment(
           MemoryMoment(
-            id: uploaded.id.isEmpty ? localId : 'fb_${uploaded.id}',
+            id: uploaded.id.isEmpty
+                ? 'fb_${DateTime.now().millisecondsSinceEpoch}'
+                : 'fb_${uploaded.id}',
             residentId: residentId,
             residentName: residentName,
-            imageUrl: remoteUrl.isNotEmpty ? remoteUrl : localPath,
+            imageUrl: remoteUrl,
+            fallbackPath: localPath,
             activityTitle: uploaded.caption?.trim().isNotEmpty == true
                 ? uploaded.caption!.trim()
                 : title,
             date: 'الآن',
             appreciations: 0,
           ),
-          replaceId: localId,
+          replaceId: localMomentId,
         );
         provider.backendSyncError = null;
+        completed = true;
         unawaited(provider.syncBackendData());
       } catch (e) {
-        provider.backendSyncError =
-            'تم حفظ الصورة محلياً، لكن تعذر رفعها للسيرفر: $e';
+        provider.backendSyncError = 'تعذر رفع الصورة. حاول مرة أخرى بعد قليل.';
+        completed = true;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(provider.backendSyncError!),
+              content: const Text(
+                  'تم حفظ الصورة محليا، وتعذر رفعها للسيرفر. حاول مرة أخرى بعد قليل.'),
               backgroundColor: Colors.orange.shade700,
             ),
           );
@@ -154,7 +168,7 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
 
   // إظهار نافذة تأكيد قبل الرفع الفعلي
   void _showConfirmUpload(String type, {String? imagePath}) {
-    String title = type == 'صورة' ? 'صورة عائلية جديدة' : 'رسالة صوتية للأب';
+    String title = type == 'صورة' ? '' : 'رسالة صوتية للأب';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -503,7 +517,10 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
 
   // بناء معرض الصور والرسائل المرفوعة (Grid View)
   Widget _buildGallery(List<MemoryMoment> moments) {
-    if (moments.isEmpty) {
+    final displayMoments =
+        moments.where((m) => _isDisplayableImagePath(m.imageUrl)).toList();
+
+    if (displayMoments.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -549,9 +566,9 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
         mainAxisSpacing: 16,
         childAspectRatio: 0.85,
       ),
-      itemCount: moments.length,
+      itemCount: displayMoments.length,
       itemBuilder: (context, i) {
-        final m = moments[i];
+        final m = displayMoments[i];
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -571,10 +588,38 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(24)),
-                        child: _buildMemoryMomentImage(m.imageUrl),
+                      child: GestureDetector(
+                        onTap: () => _openImageViewer(m),
+                        child: Hero(
+                          tag: 'family_bridge_${m.id}',
+                          child: ClipRRect(
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(24)),
+                            child: _buildMemoryMomentImage(
+                              m.imageUrl,
+                              fallbackPath: m.fallbackPath,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: GestureDetector(
+                        onTap: () => _saveMomentImage(m),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 4),
+                            ],
+                          ),
+                          child: const Icon(Icons.download_rounded,
+                              color: Color(0xFF0EA5E9), size: 16),
+                        ),
                       ),
                     ),
                     Positioned(
@@ -606,11 +651,14 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(m.activityTitle,
-                        style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1e293b))),
+                    if (_shouldShowMomentTitle(m.activityTitle)) ...[
+                      Text(m.activityTitle,
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1e293b))),
+                      const SizedBox(height: 2),
+                    ],
                     Text(m.date,
                         style: const TextStyle(
                             fontSize: 8, color: Color(0xFF94a3b8))),
@@ -624,17 +672,23 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
     );
   }
 
-  Widget _buildMemoryMomentImage(String imageUrl) {
-    final path = imageUrl.trim();
-    if (path.isEmpty) return _buildImageFallback();
+  Widget _buildMemoryMomentImage(String imageUrl, {String? fallbackPath}) {
+    final paths = _imageCandidates(imageUrl, fallbackPath);
+    if (paths.isEmpty) return _buildImageFallback();
+    return _buildImageFromCandidates(paths);
+  }
 
+  Widget _buildImageFromCandidates(List<String> paths, {int index = 0}) {
+    if (index >= paths.length) return _buildImageFallback();
+    final path = paths[index];
+    final fallback = _buildImageFromCandidates(paths, index: index + 1);
     if (!kIsWeb) {
       final file = File(path);
       if (file.existsSync()) {
         return Image.file(
           file,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildImageFallback(),
+          errorBuilder: (_, __, ___) => fallback,
         );
       }
     }
@@ -643,13 +697,145 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
     if (resolvedUrl.startsWith('http') ||
         resolvedUrl.startsWith('blob') ||
         resolvedUrl.startsWith('data:image')) {
-      return Image.network(
-        resolvedUrl,
+      return AuthenticatedNetworkImage(
+        url: resolvedUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildImageFallback(),
+        errorBuilder: (_, __, ___) => fallback,
       );
     }
-    return _buildImageFallback();
+    return fallback;
+  }
+
+  bool _isDisplayableImagePath(String imageUrl) {
+    final path = imageUrl.trim();
+    if (path.isEmpty) return false;
+    if (path.startsWith('http://') ||
+        path.startsWith('https://') ||
+        path.startsWith('blob:') ||
+        path.startsWith('data:image') ||
+        (path.startsWith('/') && !path.startsWith('//'))) {
+      return true;
+    }
+    if (path.startsWith('assets/')) return true;
+    if (!kIsWeb) return File(path).existsSync();
+    return false;
+  }
+
+  List<String> _imageCandidates(String imageUrl, String? fallbackPath) {
+    final seen = <String>{};
+    return [imageUrl, fallbackPath]
+        .map((value) => value?.trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .where((value) => seen.add(value))
+        .toList();
+  }
+
+  bool _shouldShowMomentTitle(String title) {
+    final clean = title.trim();
+    return clean.isNotEmpty &&
+        clean != 'صورة عائلية جديدة' &&
+        clean != 'لحظة عائلية' &&
+        clean != 'صورة جديدة';
+  }
+
+  void _openImageViewer(MemoryMoment moment) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullScreenImageScreen(
+          heroTag: 'family_bridge_${moment.id}',
+          url: moment.imageUrl,
+          fallbackPath: moment.fallbackPath,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveMomentImage(MemoryMoment moment) async {
+    try {
+      final permission = await PhotoManager.requestPermissionExtend();
+      if (!permission.isAuth && !permission.hasAccess) {
+        PhotoManager.openSetting();
+        throw Exception('يحتاج التطبيق إذن الوصول للصور');
+      }
+
+      final saved = await _saveFirstAvailableImage(
+        _imageCandidates(moment.imageUrl, moment.fallbackPath),
+      );
+      if (!saved) throw Exception('تعذر العثور على صورة صالحة للحفظ');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم حفظ الصورة على جهازك'),
+          backgroundColor: Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تعذر حفظ الصورة: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<bool> _saveFirstAvailableImage(List<String> paths) async {
+    for (final imageUrl in paths) {
+      final saved = await _saveImagePath(imageUrl);
+      if (saved) return true;
+    }
+    return false;
+  }
+
+  Future<bool> _saveImagePath(String imageUrl) async {
+    final path = imageUrl.trim();
+    if (path.isEmpty || path.startsWith('assets/')) return false;
+
+    final resolvedUrl = _resolveImageUrl(path);
+    if (resolvedUrl.startsWith('http')) {
+      final response = await _downloadNetworkImage(resolvedUrl);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        await PhotoManager.editor.saveImage(
+          response.bodyBytes,
+          filename: _fileNameFromPath(resolvedUrl),
+          title: 'Wanas family photo',
+        );
+        return true;
+      }
+      return false;
+    }
+
+    if (!kIsWeb) {
+      final file = File(path);
+      if (await file.exists()) {
+        await PhotoManager.editor.saveImageWithPath(
+          file.path,
+          title: 'Wanas family photo',
+        );
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  Future<http.Response> _downloadNetworkImage(String url) async {
+    final headers = <String, String>{};
+    final apiUri = Uri.tryParse(ApiConfig.baseUrl);
+    final uri = Uri.tryParse(url);
+    if (apiUri != null &&
+        uri != null &&
+        uri.scheme == apiUri.scheme &&
+        uri.host == apiUri.host) {
+      final token = await ApiClient.instance.getToken();
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+    }
+    return http.get(Uri.parse(url), headers: headers);
   }
 
   String _resolveImageUrl(String raw) {
@@ -657,6 +843,15 @@ class _FamilyBridgeScreenState extends ConsumerState<FamilyBridgeScreen>
       return '${ApiConfig.baseUrl}$raw';
     }
     return raw;
+  }
+
+  String _fileNameFromPath(String raw) {
+    final path = Uri.tryParse(raw)?.path ?? raw;
+    final name = path.split('/').where((part) => part.isNotEmpty).lastOrNull;
+    if (name == null || !name.contains('.')) {
+      return 'wanas_family_photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    }
+    return name;
   }
 
   Widget _buildImageFallback() {

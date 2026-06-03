@@ -36,7 +36,7 @@ class TaptabaScaffold extends ConsumerStatefulWidget {
     this.floatingActionButton,
     this.floatingActionButtonLocation,
     this.overrideRole,
-    this.extendBody = true,
+    this.extendBody = false,
     this.extendBodyBehindAppBar = false,
     this.transparentAppBar = false,
     this.hideAppBar = false,

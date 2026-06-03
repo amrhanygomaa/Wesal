@@ -3,6 +3,7 @@ import 'package:file_picker/file_picker.dart' as fp;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../config/api_config.dart';
 import '../../providers/app_riverpod.dart';
 import '../../models/app_models.dart';
 import '../../services/resident_document_service.dart';
@@ -13,6 +14,9 @@ import '../../widgets/taptaba_scaffold.dart';
 ImageProvider<Object>? _residentImageProvider(String? imageUrl) {
   final value = imageUrl?.trim() ?? '';
   if (value.isEmpty) return null;
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    return NetworkImage('${ApiConfig.baseUrl}$value');
+  }
   final uri = Uri.tryParse(value);
   if (uri != null &&
       uri.hasScheme &&

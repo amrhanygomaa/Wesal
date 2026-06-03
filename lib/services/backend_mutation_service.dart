@@ -21,15 +21,59 @@ class BackendMutationService {
     });
   }
 
-  Future<void> disableManagedUser(String id) {
-    return ApiClient.instance.patch('/admin/users/$id/disable');
+  Future<void> disableManagedUser(
+    String id, {
+    Iterable<String> fallbackIds = const [],
+  }) async {
+    final ids = <String>[
+      id,
+      ...fallbackIds,
+    ].map((value) => value.trim()).where((value) => value.isNotEmpty).toList();
+
+    final uniqueIds = <String>[];
+    for (final value in ids) {
+      if (!uniqueIds.contains(value)) uniqueIds.add(value);
+    }
+
+    ApiException? lastMissingError;
+    for (final value in uniqueIds) {
+      try {
+        await ApiClient.instance.patch('/admin/users/$value/disable');
+        return;
+      } on ApiException catch (e) {
+        if (_isManagedUserMissing(e)) {
+          lastMissingError = e;
+          continue;
+        }
+        rethrow;
+      }
+    }
+
+    if (lastMissingError != null) {
+      return;
+    }
   }
 
   Future<void> updateManagedUser(StaffPerformance staff) {
-    return ApiClient.instance.patch('/admin/users/${staff.id}', body: {
+    final userId = _managedUserRouteId(staff);
+    return ApiClient.instance.patch('/admin/users/$userId', body: {
       'fullName': staff.name,
       'role': _backendRole(staff.role),
     });
+  }
+
+  String _managedUserRouteId(StaffPerformance staff) {
+    final managedUserId = staff.managedUserId?.trim() ?? '';
+    if (managedUserId.isNotEmpty) return managedUserId;
+    return staff.id;
+  }
+
+  bool _isManagedUserMissing(ApiException error) {
+    final message = error.message.toLowerCase();
+    final body = error.body?.toString().toLowerCase() ?? '';
+    return error.statusCode == 404 ||
+        message.contains('managed user') && message.contains('not found') ||
+        body.contains('managed user') && body.contains('not found');
   }
 
   Future<void> createFamilyMemberForEmail({
@@ -461,12 +505,31 @@ class BackendMutationService {
     });
   }
 
-  Future<void> approveVisit(String id) {
-    return ApiClient.instance.patch('/family-bridge/visits/$id/approve');
+  Future<void> approveVisit(String id) async {
+    try {
+      await ApiClient.instance.patch('/family-bridge/visits/$id/approve');
+    } on ApiException {
+      await updateVisitStatus(id, 'approved');
+    }
   }
 
-  Future<void> rejectVisit(String id) {
-    return ApiClient.instance.patch('/family-bridge/visits/$id/reject');
+  Future<void> rejectVisit(String id) async {
+    try {
+      await ApiClient.instance.patch('/family-bridge/visits/$id/reject');
+    } on ApiException {
+      await updateVisitStatus(id, 'rejected');
+    }
+  }
+
+  Future<void> cancelVisit(String id) {
+    return updateVisitStatus(id, 'cancelled');
+  }
+
+  Future<void> updateVisitStatus(String id, String status) {
+    return ApiClient.instance.patch(
+      '/family-bridge/visits/$id/status',
+      body: {'status': status},
+    );
   }
 
   Future<void> payBill(String id) {
@@ -842,6 +905,9 @@ class BackendMutationService {
       'points': opportunity.points,
       'description': opportunity.description,
       'totalSlots': opportunity.totalSlots,
+      'targetAudience': opportunity.targetAudience,
+      'targetResident': opportunity.targetResident,
+      'requiredSkills': opportunity.requiredSkills,
     };
   }
 }

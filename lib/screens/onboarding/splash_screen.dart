@@ -12,6 +12,8 @@ class WanasSplashScreen extends StatefulWidget {
 
 class _WanasSplashScreenState extends State<WanasSplashScreen>
     with TickerProviderStateMixin {
+  static const String _splashLogoAsset = 'assets/icons/FIRST.png';
+
   late AnimationController _fadeController;
   late AnimationController _glowController;
   late Animation<double> _logoScale;
@@ -23,7 +25,7 @@ class _WanasSplashScreenState extends State<WanasSplashScreen>
 
   Future<void> _checkLogoAsset() async {
     try {
-      await rootBundle.load('assets/icons/wanas_logo.png');
+      await rootBundle.load(_splashLogoAsset);
       if (mounted) {
         setState(() {
           _useLogoAsset = true;
@@ -210,7 +212,7 @@ class _WanasSplashScreenState extends State<WanasSplashScreen>
                               scale: _logoScale.value,
                               child: _useLogoAsset
                                   ? Image.asset(
-                                      'assets/icons/wanas_logo.png',
+                                      _splashLogoAsset,
                                       width: size.width *
                                           2.5, // تكبير الشعار أكثر وأكثر لتكبير الاسم والرمز للدرجة القصوى المطلوبة
                                       fit: BoxFit.contain,
@@ -391,7 +393,7 @@ class _WanasSplashScreenState extends State<WanasSplashScreen>
       ),
       alignment: Alignment.center,
       child: Image.asset(
-        'assets/icons/wanas_logo.png',
+        _splashLogoAsset,
         width: 85,
         height: 85,
         // إذا لم يكن اللوجو المرفوع متوفراً بعد كملف، فسيتم رسم الشعار الذهبي الفاخر تلقائياً بالنظام الفيكتور المدمج

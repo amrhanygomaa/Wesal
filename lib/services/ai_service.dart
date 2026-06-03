@@ -257,23 +257,156 @@ class AiService {
 
   // 2. الخطة الغذائية الذكية
   Future<MealPlan> generateSmartDiet(ResidentMedicalInfo info) async {
-    final res = await ApiClient.instance.post(
-      '/ai/smart-diet',
-      body: {
-        'residentName': info.residentName,
-        'chronicDiseases': info.chronicDiseases,
-        'allergies': info.allergies,
-      },
-      auth: true,
-    );
+    try {
+      final res = await ApiClient.instance.post(
+        '/ai/smart-diet',
+        body: {
+          'residentName': info.residentName,
+          'medications': info.medications,
+          'chronicDiseases': info.chronicDiseases,
+          'allergies': info.allergies,
+          'language': 'ar-eg',
+        },
+        auth: true,
+        timeout: const Duration(seconds: 45),
+      );
+      final data = _firstMap(res, ['plan', 'dietPlan', 'mealPlan']) ??
+          (res is Map ? Map<String, dynamic>.from(res) : <String, dynamic>{});
+      return MealPlan(
+        residentName: info.residentName,
+        breakfast: _firstText(
+            data,
+            [
+              'breakfast',
+              'breakfastMeal',
+              'breakfast_meal',
+              'وجبة الإفطار',
+              'الإفطار',
+            ],
+            fallback: 'شوفان مع فواكه'),
+        lunch: _firstText(
+            data,
+            [
+              'lunch',
+              'lunchMeal',
+              'lunch_meal',
+              'وجبة الغداء',
+              'الغداء',
+            ],
+            fallback: 'دجاج مشوي مع خضار مسلوق'),
+        dinner: _firstText(
+            data,
+            [
+              'dinner',
+              'dinnerMeal',
+              'dinner_meal',
+              'وجبة العشاء',
+              'العشاء',
+            ],
+            fallback: 'زبادي وخيار'),
+        snacks: _firstText(data, [
+          'snacks',
+          'snack',
+          'healthySnack',
+          'وجبة خفيفة',
+        ]),
+        specialInstructions: _firstText(data, [
+          'specialInstructions',
+          'instructions',
+          'notes',
+          'تعليمات خاصة',
+        ]),
+        isAiGenerated: true,
+        aiRationale: _firstText(
+            data,
+            [
+              'rationale',
+              'reason',
+              'aiRationale',
+              'explanation',
+              'سبب الاختيار',
+            ],
+            fallback: 'تم توليد الخطة وفق الملف الصحي للمقيم.'),
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('[AI] smart diet fallback: $e');
+      return _buildLocalSmartDiet(info);
+    }
+  }
+
+  Map<String, dynamic>? _firstMap(dynamic value, List<String> keys) {
+    if (value is! Map) return null;
+    for (final key in keys) {
+      final nested = value[key];
+      if (nested is Map) return Map<String, dynamic>.from(nested);
+    }
+    return null;
+  }
+
+  String _firstText(
+    Map<String, dynamic> data,
+    List<String> keys, {
+    String fallback = '',
+  }) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value == null) continue;
+      if (value is List) {
+        final text = value
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .join('، ');
+        if (text.isNotEmpty) return text;
+      }
+      final text = value.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return fallback;
+  }
+
+  MealPlan _buildLocalSmartDiet(ResidentMedicalInfo info) {
+    final profile = [
+      ...info.chronicDiseases,
+      ...info.allergies,
+      ...info.medications,
+    ].join(' ').toLowerCase();
+    final hasDiabetes = profile.contains('سكري') ||
+        profile.contains('diabetes') ||
+        profile.contains('sugar');
+    final hasHypertension = profile.contains('ضغط') ||
+        profile.contains('hypertension') ||
+        profile.contains('blood pressure');
+    final hasHeartCondition =
+        profile.contains('قلب') || profile.contains('heart');
+    final hasKidneyCondition =
+        profile.contains('كلى') || profile.contains('kidney');
+
+    final restrictions = <String>[];
+    if (hasDiabetes) restrictions.add('مناسب للسكري وبدون سكر مضاف');
+    if (hasHypertension || hasHeartCondition) restrictions.add('قليل الصوديوم');
+    if (hasKidneyCondition) {
+      restrictions.add('يراعى ضبط البروتين حسب توصية الطبيب');
+    }
+    if (info.allergies.isNotEmpty) {
+      restrictions.add('تجنب الحساسية: ${info.allergies.join('، ')}');
+    }
+
     return MealPlan(
       residentName: info.residentName,
-      breakfast: res['breakfast'] ?? 'شوفان مع فواكه',
-      lunch: res['lunch'] ?? 'دجاج مشوي مع خضار مسلوق',
-      dinner: res['dinner'] ?? 'زبادي وخيار',
+      breakfast: hasDiabetes
+          ? 'شوفان بالحليب قليل الدسم، بيضة مسلوقة، خيار'
+          : 'جبن قريش، خبز حبوب كاملة، ثمرة فاكهة',
+      lunch: hasHypertension || hasHeartCondition
+          ? 'سمك مشوي، خضار سوتيه بدون ملح زائد، أرز بني'
+          : 'دجاج مشوي، شوربة خضار، أرز بني',
+      dinner: hasDiabetes
+          ? 'زبادي غير محلى، سلطة خضراء، شريحة خبز حبوب كاملة'
+          : 'سلطة خفيفة، زبادي، خبز حبوب كاملة',
+      snacks: hasDiabetes ? 'حفنة مكسرات غير مملحة' : 'فاكهة موسمية',
+      specialInstructions: restrictions.join('. '),
       isAiGenerated: true,
       aiRationale:
-          res['rationale'] ?? 'تم اختيار هذه الوجبات لتقليل نسبة السكر.',
+          'تم توليد خطة محلية احتياطية لأن خدمة الذكاء الاصطناعي لم ترد، مع مراعاة بيانات المقيم الصحية المتاحة.',
     );
   }
 

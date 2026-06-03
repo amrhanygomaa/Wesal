@@ -27,22 +27,45 @@ class BackendFamilyMedia {
   });
 
   factory BackendFamilyMedia.fromJson(Map<String, dynamic> j) {
+    final data =
+        j['media'] is Map ? Map<String, dynamic>.from(j['media'] as Map) : j;
+    String? pickString(List<String> keys) {
+      for (final key in keys) {
+        final value = data[key] ?? j[key];
+        final text = value?.toString().trim() ?? '';
+        if (text.isNotEmpty) return text;
+      }
+      return null;
+    }
+
     return BackendFamilyMedia(
-      id: (j['id'] ?? '').toString(),
-      residentId: (j['residentId'] ?? j['resident_id'] ?? '').toString(),
-      fileName: (j['fileName'] ?? j['file_name'] ?? '').toString(),
-      contentType: (j['contentType'] ?? j['content_type'] ?? '').toString(),
-      status: (j['status'] ?? '').toString(),
-      caption: (j['caption'])?.toString(),
-      fileSizeBytes: (j['fileSizeBytes'] ?? j['file_size_bytes']) is num
-          ? ((j['fileSizeBytes'] ?? j['file_size_bytes']) as num).toInt()
+      id: pickString(['id']) ?? '',
+      residentId: pickString(['residentId', 'resident_id']) ?? '',
+      fileName: pickString(['fileName', 'file_name']) ?? '',
+      contentType: pickString(['contentType', 'content_type']) ?? '',
+      status: pickString(['status']) ?? '',
+      caption: pickString(['caption']),
+      fileSizeBytes: (data['fileSizeBytes'] ?? data['file_size_bytes']) is num
+          ? ((data['fileSizeBytes'] ?? data['file_size_bytes']) as num).toInt()
           : null,
-      mediaUrl: (j['mediaUrl'] ??
-              j['media_url'] ??
-              j['downloadUrl'] ??
-              j['presignedUrl'])
-          ?.toString(),
-      createdAt: (j['createdAt'] ?? j['created_at'] ?? '').toString(),
+      mediaUrl: pickString([
+        'mediaUrl',
+        'media_url',
+        'downloadUrl',
+        'download_url',
+        'imageUrl',
+        'image_url',
+        'publicUrl',
+        'public_url',
+        'fileUrl',
+        'file_url',
+        's3Url',
+        's3_url',
+        'objectUrl',
+        'object_url',
+        'url',
+      ]),
+      createdAt: pickString(['createdAt', 'created_at']) ?? '',
     );
   }
 }
@@ -83,9 +106,12 @@ class FamilyMediaService {
     );
 
     final uploadMap = Map<String, dynamic>.from(requested as Map);
-    final uploadUrl = (uploadMap['presignedUrl'] ?? '').toString();
+    final uploadUrl =
+        (uploadMap['presignedUrl'] ?? uploadMap['uploadUrl'] ?? '').toString();
     final media = BackendFamilyMedia.fromJson(
-      Map<String, dynamic>.from(uploadMap['media'] as Map),
+      uploadMap['media'] is Map
+          ? Map<String, dynamic>.from(uploadMap['media'] as Map)
+          : uploadMap,
     );
     if (uploadUrl.isEmpty || media.id.isEmpty) {
       throw ApiException(500, 'Invalid family media upload response');
@@ -99,12 +125,30 @@ class FamilyMediaService {
       label: image.name,
     );
 
-    final confirmed = await ApiClient.instance.patch(
+    final confirmedRaw = await ApiClient.instance.patch(
       '/family-bridge/media/${media.id}/confirm',
       body: {'fileSizeBytes': bytes.length},
     );
-    return BackendFamilyMedia.fromJson(
-      Map<String, dynamic>.from(confirmed as Map),
+    final confirmed = BackendFamilyMedia.fromJson(
+        Map<String, dynamic>.from(confirmedRaw as Map));
+    if ((confirmed.mediaUrl ?? '').trim().isNotEmpty) return confirmed;
+    return BackendFamilyMedia(
+      id: confirmed.id.isNotEmpty ? confirmed.id : media.id,
+      residentId: confirmed.residentId.isNotEmpty
+          ? confirmed.residentId
+          : media.residentId,
+      fileName:
+          confirmed.fileName.isNotEmpty ? confirmed.fileName : media.fileName,
+      contentType: confirmed.contentType.isNotEmpty
+          ? confirmed.contentType
+          : media.contentType,
+      status: confirmed.status.isNotEmpty ? confirmed.status : media.status,
+      caption: confirmed.caption ?? media.caption,
+      fileSizeBytes: confirmed.fileSizeBytes ?? bytes.length,
+      mediaUrl: media.mediaUrl,
+      createdAt: confirmed.createdAt.isNotEmpty
+          ? confirmed.createdAt
+          : media.createdAt,
     );
   }
 

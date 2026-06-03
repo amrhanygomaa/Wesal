@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../utils/user_feedback_message.dart';
 import 'api_client.dart';
 
 class CognitoUserInfo {
@@ -179,7 +180,8 @@ class AuthService {
     final refreshToken = body['refreshToken']?.toString();
 
     if (sessionToken.isEmpty) {
-      throw ApiException(500, 'استجابة تسجيل الدخول من السيرفر غير متوقعة', body);
+      throw ApiException(
+          500, 'تعذر إكمال تسجيل الدخول حالياً. حاول مرة أخرى.', body);
     }
 
     await ApiClient.instance.saveTokens(
@@ -229,7 +231,7 @@ class AuthService {
         : cleanEmail;
     final session = body['Session']?.toString() ?? '';
     if (session.isEmpty) {
-      throw ApiException(500, 'استجابة تفعيل الحساب من Cognito غير متوقعة');
+      throw ApiException(500, 'تعذر إكمال تفعيل الحساب حالياً. حاول مرة أخرى.');
     }
 
     return CognitoNewPasswordChallenge(
@@ -259,7 +261,7 @@ class AuthService {
     final refreshToken = auth?['RefreshToken']?.toString();
     final sessionToken = idToken.isNotEmpty ? idToken : accessToken;
     if (sessionToken.isEmpty) {
-      throw ApiException(500, 'استجابة تفعيل الحساب من Cognito غير متوقعة');
+      throw ApiException(500, 'تعذر إكمال تفعيل الحساب حالياً. حاول مرة أخرى.');
     }
 
     await ApiClient.instance.saveTokens(
@@ -316,7 +318,11 @@ class AuthService {
     if (res.statusCode == 409) {
       throw ApiException(409, 'البريد الإلكتروني مستخدم بالفعل');
     }
-    throw ApiException(res.statusCode, text, body);
+    throw ApiException(
+      res.statusCode,
+      friendlyApiErrorMessage(res.statusCode, text, body: body),
+      body,
+    );
   }
 
   // تسجيل أول مدير منشأة — لا يحتاج JWT، يحتاج setupSecret
@@ -373,7 +379,11 @@ class AuthService {
     if (res.statusCode == 401) {
       throw ApiException(401, 'رمز الإعداد غير صحيح');
     }
-    throw ApiException(res.statusCode, text, body);
+    throw ApiException(
+      res.statusCode,
+      friendlyApiErrorMessage(res.statusCode, text, body: body),
+      body,
+    );
   }
 
   Future<void> logout() async {
@@ -411,7 +421,11 @@ class AuthService {
       throw ApiException(
           429, 'تم تجاوز الحد المسموح لطلبات الاستعادة، حاول لاحقاً', body);
     }
-    throw ApiException(res.statusCode, text, body);
+    throw ApiException(
+      res.statusCode,
+      friendlyApiErrorMessage(res.statusCode, text, body: body),
+      body,
+    );
   }
 
   // تأكيد كود الاستعادة وتعيين كلمة سر جديدة
@@ -448,7 +462,11 @@ class AuthService {
     if (res.statusCode == 400) {
       throw ApiException(400, 'الكود غير صالح أو منتهي الصلاحية', body);
     }
-    throw ApiException(res.statusCode, text, body);
+    throw ApiException(
+      res.statusCode,
+      friendlyApiErrorMessage(res.statusCode, text, body: body),
+      body,
+    );
   }
 
   Future<CognitoUserInfo?> refreshSession() async {
@@ -479,7 +497,12 @@ class AuthService {
 
     if (res.statusCode != 200) {
       await logout();
-      final message = body['message']?.toString() ?? 'فشل تجديد الجلسة';
+      final rawMessage = body['message']?.toString() ?? 'فشل تجديد الجلسة';
+      final message = friendlyApiErrorMessage(
+        res.statusCode,
+        rawMessage,
+        body: body,
+      );
       throw ApiException(res.statusCode, message, body);
     }
 
@@ -487,7 +510,7 @@ class AuthService {
     final idToken = auth?['IdToken'] as String?;
     if (idToken == null || idToken.isEmpty) {
       await logout();
-      throw ApiException(500, 'استجابة Cognito غير متوقعة عند تجديد الجلسة');
+      throw ApiException(500, 'تعذر تجديد الجلسة. سجّل الدخول مرة أخرى.');
     }
 
     await ApiClient.instance.saveTokens(

@@ -48,9 +48,8 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
         vsync: this, duration: const Duration(milliseconds: 2000))
       ..repeat();
 
-    // طلب إذن جهات الاتصال وجلب المفضلين عند فتح الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(appRiverpod).fetchFavoriteContacts();
+      ref.read(appRiverpod).loadFamilyCardPreferences();
     });
   }
 
@@ -583,10 +582,15 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
     bool hc = provider.isHighContrast;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final pinnedMembers =
-            provider.familyMembersList.where((m) => m.isPinned).toList();
-        final displayMembers =
-            _showAllFamily ? pinnedMembers : pinnedMembers.take(3).toList();
+        final favoriteMembers =
+            provider.favoriteFamilyMembersForCurrentResident(
+          ignoreLimit: true,
+        );
+        final displayLimit =
+            provider.familyCardDisplayLimitForCurrentResident();
+        final displayMembers = _showAllFamily
+            ? favoriteMembers
+            : favoriteMembers.take(displayLimit).toList();
 
         return Container(
           width: double.infinity,
@@ -645,12 +649,23 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                   ],
                 ),
                 const SizedBox(height: 15),
-                if (pinnedMembers.isEmpty)
+                if (provider.familyMembersForCurrentResident().isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 20),
                     child: Center(
                       child: Text(
-                          'لم يتم اختيار أرقام مفضلة بعد.\nاضغط على الأيقونة بالأعلى لإضافة أرقام.',
+                          'لا يوجد أفراد عائلة مرتبطون بهذا المقيم حالياً.\nيمكن للأدمن إضافتهم من ملف المقيم.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: Color(0xFF94a3b8), fontSize: 16)),
+                    ),
+                  )
+                else if (favoriteMembers.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                          'لم يتم اختيار أشخاص مفضلين بعد.\nاضغط على الإعدادات واختر من يظهر هنا.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               color: Color(0xFF94a3b8), fontSize: 16)),
@@ -674,7 +689,7 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                             provider,
                           ),
                         ),
-                      if (pinnedMembers.length > 3)
+                      if (favoriteMembers.length > displayLimit)
                         TextButton.icon(
                           onPressed: () =>
                               setState(() => _showAllFamily = !_showAllFamily),
@@ -724,28 +739,52 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
                       color: Colors.grey[300],
                       borderRadius: BorderRadius.circular(10))),
               const SizedBox(height: 20),
-              const Text('اختر الأرقام التي تظهر في الواحدة الرئيسية',
+              const Text('اختر الأشخاص الذين يظهرون في كارت التواصل',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              const Text('سيتم عرض أول ٣ أرقام فقط بشكل دائم',
+              const Text(
+                  'القائمة مرتبطة بأفراد العائلة الموجودين في ملف المقيم',
                   style: TextStyle(color: Colors.grey, fontSize: 14)),
               const SizedBox(height: 20),
-              // زر الإضافة من الهاتف
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await provider.pickAndAddContact();
-                  setModalState(() {}); // تحديث القائمة داخل الشاشة المنبثقة
-                },
-                icon: const Icon(Icons.contact_phone_rounded),
-                label: const Text('إضافة من جهات اتصال الهاتف 📱',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF6C63FF),
-                  side: const BorderSide(color: Color(0xFF6C63FF)),
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'عدد الأشخاص في الكارت',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(
+                  max(
+                      1,
+                      min(6,
+                          provider.familyMembersForCurrentResident().length)),
+                  (index) {
+                    final value = index + 1;
+                    final selected = value ==
+                        provider.familyCardDisplayLimitForCurrentResident();
+                    return ChoiceChip(
+                      label: Text('$value'),
+                      selected: selected,
+                      selectedColor: const Color(0xFF6C63FF),
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      labelStyle: TextStyle(
+                        color:
+                            selected ? Colors.white : const Color(0xFF475569),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      onSelected: (_) async {
+                        await provider.setFamilyCardDisplayLimit(value);
+                        setModalState(() {});
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 15),
@@ -753,21 +792,24 @@ class _CallsScreenState extends ConsumerState<CallsScreen>
               Expanded(
                 child: ListView.builder(
                   shrinkWrap: true,
-                  itemCount: provider.familyMembersList.length,
+                  itemCount: provider.familyMembersForCurrentResident().length,
                   itemBuilder: (context, index) {
-                    final member = provider.familyMembersList[index];
+                    final members = provider.familyMembersForCurrentResident();
+                    final member = members[index];
                     return CheckboxListTile(
                       title: Text(member.name,
                           style: const TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                       subtitle: Text(member.relation,
                           style: const TextStyle(color: Colors.grey)),
-                      value: member.isPinned,
+                      value: provider.isFamilyCardFavorite(member.id),
                       activeColor: const Color(0xFF6C63FF),
-                      onChanged: (val) {
-                        provider.toggleFamilyPin(member.id);
-                        setModalState(
-                            () {}); // لتحديث الواجهة داخل الـ BottomSheet
+                      onChanged: (val) async {
+                        await provider.setFamilyCardFavorite(
+                          member.id,
+                          val == true,
+                        );
+                        setModalState(() {});
                       },
                       secondary: CircleAvatar(
                         backgroundColor:

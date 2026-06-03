@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../models/app_models.dart';
 import '../../providers/app_riverpod.dart';
 import 'voice_messages_playback_screen.dart';
 import 'album_details_screen.dart';
@@ -1099,24 +1100,15 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen>
   Widget _buildFamilyNote(AppRiverpod provider) {
     final hc = provider.isHighContrast;
 
-    // Find the latest text or voice message sent from the family dashboard
     final familyMessages = provider.memoriesList
         .where((m) =>
-            m.category == 'أسرة' && (m.type == 'text' || m.type == 'voice'))
+            m.category == 'أسرة' &&
+            m.type == 'text' &&
+            ((m.content?.trim().isNotEmpty ?? false) ||
+                m.title.trim().startsWith('رسالة')))
         .toList();
-
     final hasCustomMessage = familyMessages.isNotEmpty;
-    final latestMsg = hasCustomMessage ? familyMessages.first : null;
-
-    final messageText = latestMsg != null
-        ? (latestMsg.type == 'voice'
-            ? '🎤 أرسلت لك العائلة رسالة صوتية تشجيعية، يمكنك الاستماع إليها من شاشة الاتصالات أو الرسائل!'
-            : '"${latestMsg.content}"')
-        : 'لا توجد رسائل عائلية من السيرفر حتى الآن';
-
-    final signatureText = latestMsg != null ? 'من: العائلة ❤️' : 'من: العائلة';
-
-    final dateText = latestMsg != null ? latestMsg.date : 'اليوم ٨:٠٠ ص';
+    final previewMessages = familyMessages.take(2).toList();
 
     return AnimatedBuilder(
       animation: Listenable.merge([_noteController, _floatController]),
@@ -1131,217 +1123,398 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen>
           child: Opacity(opacity: opacity, child: child),
         );
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
-        decoration: BoxDecoration(
-          color: hc ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: hc
-                ? const Color(0xFFfbbf24)
-                : const Color(0xFFFFF7ED), // Subtle warm borders
-            width: hc ? 2.0 : 1.5,
-          ),
-          boxShadow: hc
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFfbbf24).withValues(alpha: 0.15),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ]
-              : [
-                  // Luxury Neumorphic dual shadows for absolute 3D realism
-                  BoxShadow(
-                    color: const Color(0xFF0F172A).withValues(alpha: 0.06),
-                    blurRadius: 24,
-                    offset: const Offset(0, 12),
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFFEA580C).withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Premium 3D Orange-Pink Gradient side tab
-              Container(
-                width: 6,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF97316), Color(0xFFEC4899)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  boxShadow: [
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: hasCustomMessage
+            ? () => _showFamilyMessagesSheet(context, familyMessages, hc)
+            : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          decoration: BoxDecoration(
+            color: hc ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: hc
+                  ? const Color(0xFFfbbf24)
+                  : const Color(0xFFFFF7ED), // Subtle warm borders
+              width: hc ? 2.0 : 1.5,
+            ),
+            boxShadow: hc
+                ? [
                     BoxShadow(
-                      color: const Color(0xFFF97316).withValues(alpha: 0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+                      color: const Color(0xFFfbbf24).withValues(alpha: 0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [
+                    // Luxury Neumorphic dual shadows for absolute 3D realism
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFEA580C).withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 16),
-
-              // Core content column
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Header Row with Expanded title to prevent overflow (without icon)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            latestMsg != null && latestMsg.type == 'voice'
-                                ? 'رسالة صوتية من الأسرة'
-                                : 'رسالة مكتوبة من الأسرة',
-                            style: TextStyle(
-                              fontSize: 16.5, // Slightly smaller and elegant
-                              fontWeight: FontWeight.w800, // Balanced bold
-                              fontFamily: 'Cairo',
-                              color: hc
-                                  ? const Color(0xFFfbbf24)
-                                  : const Color(0xFF4F46E5), // Premium Indigo
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Category Badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: hc
-                                ? const Color(0xFF2D2D2D)
-                                : const Color(
-                                    0xFFF5F3FF), // Coordinated soft purple tint
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: hc
-                                  ? Colors.transparent
-                                  : const Color(0xFFDDD6FE),
-                              width: 0.8,
-                            ),
-                          ),
-                          child: Text(
-                            'العائلة',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Cairo',
-                              color: hc
-                                  ? Colors.white70
-                                  : const Color(0xFF7C3AED), // Muted Violet
-                            ),
-                          ),
-                        ),
-                      ],
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Premium 3D Orange-Pink Gradient side tab
+                Container(
+                  width: 6,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFF97316), Color(0xFFEC4899)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
-                    const SizedBox(height: 14),
-
-                    // Message quote text - Highly clean, readable slate-indigo color with modern spacing
-                    Text(
-                      messageText,
-                      style: TextStyle(
-                        fontSize:
-                            19, // Spacious, highly readable for elderly eyes
-                        fontFamily: 'Cairo',
-                        height: 1.6,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.1,
-                        color: hc
-                            ? Colors.white
-                            : const Color(
-                                0xFF1E293B), // Clean, high-contrast Slate-Indigo
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFF97316).withValues(alpha: 0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
 
-                    // Thin refined divider in light purple/grey
-                    Container(
-                      height: 1,
-                      color: hc
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : const Color(0xFFF3F4F6),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Bottom signature & timestamp row - Wrap prevents horizontal overflow
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.favorite_rounded,
-                              color:
-                                  Color(0xFFEC4899), // Cheerful Rose/Pink heart
-                              size: 16,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              signatureText,
+                // Core content column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Header Row with Expanded title to prevent overflow (without icon)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              previewMessages.length > 1
+                                  ? 'رسائل مكتوبة من الأسرة'
+                                  : 'رسالة مكتوبة من الأسرة',
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 16.5, // Slightly smaller and elegant
+                                fontWeight: FontWeight.w800, // Balanced bold
+                                fontFamily: 'Cairo',
+                                color: hc
+                                    ? const Color(0xFFfbbf24)
+                                    : const Color(0xFF4F46E5), // Premium Indigo
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Category Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: hc
+                                  ? const Color(0xFF2D2D2D)
+                                  : const Color(
+                                      0xFFF5F3FF), // Coordinated soft purple tint
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: hc
+                                    ? Colors.transparent
+                                    : const Color(0xFFDDD6FE),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Text(
+                              'العائلة',
+                              style: TextStyle(
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'Cairo',
                                 color: hc
                                     ? Colors.white70
-                                    : const Color(
-                                        0xFF4F46E5), // Coordinated Indigo
+                                    : const Color(0xFF7C3AED), // Muted Violet
                               ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      if (hasCustomMessage)
+                        ...previewMessages.map(
+                          (message) => _buildFamilyMessagePreview(message, hc),
+                        )
+                      else
+                        Text(
+                          'لا توجد رسائل مكتوبة من الأسرة حتى الآن',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontFamily: 'Cairo',
+                            height: 1.6,
+                            fontWeight: FontWeight.bold,
+                            color: hc ? Colors.white : const Color(0xFF1E293B),
+                          ),
                         ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.access_time_rounded,
+                      if (familyMessages.length > 2) ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'عرض كل الرسائل (${familyMessages.length})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
                               color: hc
-                                  ? Colors.white54
-                                  : const Color(0xFF8B5CF6), // Violet clock
-                              size: 15,
+                                  ? const Color(0xFFfbbf24)
+                                  : const Color(0xFF7C3AED),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              dateText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'Cairo',
-                                color: hc
-                                    ? Colors.white54
-                                    : const Color(
-                                        0xFF8B5CF6), // Violet timestamp
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildFamilyMessagePreview(MemoryItem message, bool hc,
+      {bool expanded = false}) {
+    final sender = _familyMessageSender(message);
+    final text = _familyMessageText(message);
+    final date = message.date.trim().isEmpty ? 'اليوم' : message.date.trim();
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: expanded ? 10 : 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: expanded ? 14 : 12,
+        vertical: expanded ? 12 : 10,
+      ),
+      decoration: BoxDecoration(
+        color:
+            hc ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hc
+              ? Colors.white.withValues(alpha: 0.12)
+              : const Color(0xFFEDE9FE),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '"$text"',
+            maxLines: expanded ? null : 2,
+            overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: expanded ? 17 : 16,
+              fontFamily: 'Cairo',
+              height: 1.55,
+              fontWeight: FontWeight.w800,
+              color: hc ? Colors.white : const Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.favorite_rounded,
+                      color: Color(0xFFEC4899), size: 16),
+                  const SizedBox(width: 5),
+                  Text(
+                    'من: $sender',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Cairo',
+                      color: hc ? Colors.white70 : const Color(0xFF4F46E5),
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.access_time_rounded,
+                    color: hc ? Colors.white54 : const Color(0xFF8B5CF6),
+                    size: 15,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    date,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: hc ? Colors.white54 : const Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFamilyMessagesSheet(
+    BuildContext context,
+    List<MemoryItem> messages,
+    bool hc,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+            ),
+            padding: EdgeInsets.fromLTRB(
+              18,
+              10,
+              18,
+              18 + MediaQuery.viewPaddingOf(context).bottom,
+            ),
+            decoration: BoxDecoration(
+              color: hc ? const Color(0xFF111827) : Colors.white,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 46,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: hc
+                        ? Colors.white.withValues(alpha: 0.25)
+                        : const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'رسائل الأسرة',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'Cairo',
+                          color: hc ? Colors.white : const Color(0xFF111827),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: hc
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${messages.length} رسائل',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Cairo',
+                          color: hc ? Colors.white70 : const Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: hc ? Colors.white70 : const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildFamilyMessagePreview(
+                        messages[index],
+                        hc,
+                        expanded: true,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _familyMessageText(MemoryItem message) {
+    final raw = (message.content?.trim().isNotEmpty ?? false)
+        ? message.content!.trim()
+        : message.title.trim();
+    return raw.replaceFirst(RegExp(r'^من[:：]\s*.+?\n+'), '').trim();
+  }
+
+  String _familyMessageSender(MemoryItem message) {
+    final contentSender =
+        RegExp(r'^من[:：]\s*(.+?)\n').firstMatch(message.content ?? '');
+    if (contentSender != null) {
+      final sender = _cleanFamilySender(contentSender.group(1) ?? '');
+      if (sender.isNotEmpty) return sender;
+    }
+
+    final titleSender = RegExp(r'^رسالة(?:\s+مكتوبة|\s+صوتية)?\s+من\s+(.+)$')
+        .firstMatch(message.title.trim());
+    if (titleSender != null) {
+      final sender = _cleanFamilySender(titleSender.group(1) ?? '');
+      if (sender.isNotEmpty) return sender;
+    }
+
+    return 'العائلة';
+  }
+
+  String _cleanFamilySender(String value) {
+    return value
+        .replaceAll('❤️', '')
+        .replaceAll('❤', '')
+        .replaceAll('✉️', '')
+        .replaceAll('✉', '')
+        .replaceAll('🎤', '')
+        .trim();
   }
 }

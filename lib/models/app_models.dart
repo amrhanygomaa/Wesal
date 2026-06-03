@@ -263,6 +263,9 @@ class VolunteerOpportunity {
   final int totalSlots;
   final int filledSlots;
   final int points;
+  final String targetAudience;
+  final String targetResident;
+  final List<String> requiredSkills;
 
   VolunteerOpportunity({
     required this.id,
@@ -277,10 +280,15 @@ class VolunteerOpportunity {
     this.totalSlots = 1,
     this.filledSlots = 0,
     this.points = 10,
+    this.targetAudience = '',
+    this.targetResident = '',
+    this.requiredSkills = const [],
   });
 
   String get status => filledSlots < totalSlots ? 'متاحة' : 'مكتملة';
   String get date => dateInfo;
+  List<String> get displaySkills =>
+      requiredSkills.isNotEmpty ? requiredSkills : tags;
 }
 
 class VolunteerImpact {
@@ -730,6 +738,7 @@ class SpecialistResidentFile {
   final List<String>? uploadedDocuments;
   final String? imageUrl;
   final String? nickname; // اسم الدلع / الاسم المُفضَّل
+  final bool? isOnline;
 
   SpecialistResidentFile({
     required this.id,
@@ -766,6 +775,7 @@ class SpecialistResidentFile {
     this.uploadedDocuments,
     this.imageUrl,
     this.nickname,
+    this.isOnline,
   });
 
   SpecialistResidentFile copyWith({
@@ -803,6 +813,7 @@ class SpecialistResidentFile {
     List<String>? uploadedDocuments,
     String? imageUrl,
     String? nickname,
+    bool? isOnline,
   }) {
     return SpecialistResidentFile(
       id: id ?? this.id,
@@ -840,6 +851,7 @@ class SpecialistResidentFile {
       uploadedDocuments: uploadedDocuments ?? this.uploadedDocuments,
       imageUrl: imageUrl ?? this.imageUrl,
       nickname: nickname ?? this.nickname,
+      isOnline: isOnline ?? this.isOnline,
     );
   }
 }
@@ -884,6 +896,8 @@ class MedicalPrescription {
 
 class StaffPerformance {
   final String id;
+  final String? managedUserId;
+  final String? authUserId;
   final String name;
   final String role; // 'Specialist', 'Nurse'
   final double completionRate;
@@ -893,6 +907,8 @@ class StaffPerformance {
 
   StaffPerformance({
     required this.id,
+    this.managedUserId,
+    this.authUserId,
     required this.name,
     required this.role,
     required this.completionRate,
@@ -903,6 +919,8 @@ class StaffPerformance {
 
   StaffPerformance copyWith({
     String? id,
+    String? managedUserId,
+    String? authUserId,
     String? name,
     String? role,
     double? completionRate,
@@ -912,6 +930,8 @@ class StaffPerformance {
   }) {
     return StaffPerformance(
       id: id ?? this.id,
+      managedUserId: managedUserId ?? this.managedUserId,
+      authUserId: authUserId ?? this.authUserId,
       name: name ?? this.name,
       role: role ?? this.role,
       completionRate: completionRate ?? this.completionRate,
@@ -967,6 +987,7 @@ class MemoryMoment {
   final String residentId;
   final String residentName;
   final String imageUrl;
+  final String? fallbackPath;
   final String activityTitle;
   final String date;
   final int appreciations;
@@ -976,6 +997,7 @@ class MemoryMoment {
     required this.residentId,
     required this.residentName,
     required this.imageUrl,
+    this.fallbackPath,
     required this.activityTitle,
     required this.date,
     this.appreciations = 0,

@@ -112,3 +112,21 @@ mem_test.txt
 # Large media & assets (optional - uncomment if assets are large)
 # assets/videos/
 # assets/images/*.png
+
+# Sensitive credentials — never commit these
+google-service-account.json
+*.pem
+*.p12
+
+# Documentation / export files (generated externally)
+*.pdf
+*.docx
+Wanas-*.png
+Wanas_*.md
+*_Export_Guide.md
+
+# Helper scripts not part of the app
+replace_aws.py
+
+# Windows temp paths accidentally created in project root
+C\*/

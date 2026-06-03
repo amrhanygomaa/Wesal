@@ -235,7 +235,7 @@ class SpecialistAssessmentView extends ConsumerWidget {
   void _showToolDetails(BuildContext context,
       SocialSpecialistAssessmentTool tool, AppRiverpod provider) {
     final parentContext = context;
-    final questions = provider.getQuestionsForTool(tool.id);
+    final questions = provider.getQuestionsForAssessmentTool(tool);
     final Set<int> selectedIndices =
         Set.from(Iterable.generate(questions.length));
     SocialSpecialistResidentScore? selectedResident =

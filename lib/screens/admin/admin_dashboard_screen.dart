@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart'; // مكتبة فلاتر الأساسية للواجهات
@@ -62,6 +63,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
     });
 
     _fadeController.forward(); // بدء تشغيل أنيميشن الظهور
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(appRiverpod).currentAdminTabIndex == 2) {
+        unawaited(ref.read(appRiverpod).syncBackendData());
+      }
+    });
   }
 
   @override
@@ -77,6 +84,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
   void _onTabChanged(int index) {
     // دالة معالجة تغيير التبويب
     ref.read(appRiverpod).setAdminTabIndex(index); // تحديث التبويب في ريفربود
+    if (index == 2) {
+      unawaited(ref.read(appRiverpod).syncBackendData());
+    }
     _fadeController.reset(); // إعادة تعيين أنيميشن التلاشي
     _fadeController.forward(); // إعادة تشغيل الأنيميشن للتبويب الجديد
   }
@@ -107,7 +117,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
           SingleChildScrollView(
             child: Column(
               children: [
-                _buildDirectorHero(provider),
+                if (provider.currentAdminTabIndex == 0)
+                  _buildDirectorHero(provider),
                 _getCurrentView(provider),
               ],
             ),
@@ -206,6 +217,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
 
   Widget _buildDirectorHero(AppRiverpod provider) {
     // بناء منطقة الـ Hero الخاصة بالمدير مع تأثير زجاجي وأنيمشن قوي
+    final adminName = provider.currentAccount?.name.trim().isNotEmpty == true
+        ? provider.currentAccount!.name.trim()
+        : 'المدير';
+    final facilityName =
+        provider.currentAccount?.facilityName?.trim().isNotEmpty == true
+            ? provider.currentAccount!.facilityName!.trim()
+            : provider.facilityName.trim().isEmpty
+                ? 'المنشأة'
+                : provider.facilityName.trim();
+
     return ClipRect(
       child: BackdropFilter(
         filter:
@@ -287,7 +308,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
               ),
               // المحتوى الأساسي للـ Hero
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
                 child: InkWell(
                   onTap: () {
                     Navigator.push(
@@ -301,35 +322,44 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.admin_panel_settings_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            MarqueeText(
-                                text: provider.currentAccount?.facilityName ??
-                                    (provider.facilityName.isEmpty
-                                        ? 'المنشأة'
-                                        : provider.facilityName),
-                                style: const TextStyle(
-                                    color: Color(0xFF94a3b8),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 2),
-                            Text(
-                                provider.currentAccount?.name ?? 'المدير',
+                            Text('أهلاً يا $adminName',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 1),
-                            Text('مدير الدار',
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2)),
+                            const SizedBox(height: 6),
+                            Text('مدير الدار · $facilityName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.5),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w400)),
+                                    color: Colors.white.withValues(alpha: 0.72),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
                           ],
                         ),
                       ),

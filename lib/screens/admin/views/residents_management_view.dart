@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../config/api_config.dart';
 import '../../../providers/app_riverpod.dart';
 import '../../../models/app_models.dart';
 import '../../../widgets/app_popup_notification.dart';
@@ -9,6 +10,9 @@ import '../admin_resident_detail_screen.dart';
 ImageProvider<Object>? _residentImageProvider(String? imageUrl) {
   final value = imageUrl?.trim() ?? '';
   if (value.isEmpty) return null;
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    return NetworkImage('${ApiConfig.baseUrl}$value');
+  }
   final uri = Uri.tryParse(value);
   if (uri != null &&
       uri.hasScheme &&
@@ -487,8 +491,8 @@ class _ResidentsManagementViewState
                       children: [
                         _buildSectionHeader('البيانات الأساسية'),
                         _buildLabel('الاسم بالكامل (عربي) *'),
-                        _buildField(
-                            nameArController, 'اسم المقيم كما سيحفظ في السيرفر'),
+                        _buildField(nameArController,
+                            'اسم المقيم كما سيحفظ في السيرفر'),
                         const SizedBox(height: 12),
                         _buildLabel('الاسم بالإنجليزية'),
                         _buildField(nameEnController, 'Resident Name',

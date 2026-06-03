@@ -312,11 +312,14 @@ class AppRiverpod extends ChangeNotifier {
       return false;
     }
 
+    _pruneFamilyCardFavorites(_familyCardPreferenceKey(residentId));
     unawaited(syncBackendData());
     return true;
   }
 
   AppRiverpod() {
+    socialAssessmentTools = _fallbackAssessmentTools();
+    _seedFallbackQuestionBank();
     _loadAuthState(); // تحميل حالة الدخول عند بدء تشغيل المزود
   }
 
@@ -1040,7 +1043,10 @@ class AppRiverpod extends ChangeNotifier {
           _dedupeMemoryMoments([...localMoments, ...snapshot.memoryMoments!]);
     }
     if (snapshot.memories != null) {
-      memoriesList = snapshot.memories!;
+      final localMemories =
+          memoriesList.where(_shouldPersistMemoryItem).toList();
+      memoriesList =
+          _dedupeMemoryItems([...localMemories, ...snapshot.memories!]);
     }
     if (snapshot.voiceMessages != null) {
       voiceMessagesList = snapshot.voiceMessages!;
@@ -1097,7 +1103,9 @@ class AppRiverpod extends ChangeNotifier {
       socialNeeds = snapshot.socialNeeds!;
     }
     if (snapshot.socialAssessmentTools != null) {
-      socialAssessmentTools = snapshot.socialAssessmentTools!;
+      socialAssessmentTools = snapshot.socialAssessmentTools!.isNotEmpty
+          ? snapshot.socialAssessmentTools!
+          : _fallbackAssessmentTools();
     }
     if (snapshot.socialResidentScores != null) {
       final seenScores = <String>{};
@@ -1119,6 +1127,11 @@ class AppRiverpod extends ChangeNotifier {
     }
     if (snapshot.familyMembers != null) {
       familyMembersList = snapshot.familyMembers!;
+      final preferenceKey =
+          _familyCardPreferenceKey(snapshot.primaryResidentId);
+      unawaited(
+          loadFamilyCardPreferences(residentId: snapshot.primaryResidentId));
+      _pruneFamilyCardFavorites(preferenceKey);
     }
     if (snapshot.assessmentHistory != null &&
         snapshot.assessmentHistory!.isNotEmpty) {
@@ -1370,6 +1383,92 @@ class AppRiverpod extends ChangeNotifier {
       }
     }
     return _looksLikeBackendId(backendResidentId) ? backendResidentId : null;
+  }
+
+  String _normalizeResidentLookup(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll('غرفة', '')
+        .replaceAll('room', '')
+        .trim();
+  }
+
+  bool _residentMatchesLookup(SpecialistResidentFile resident, String lookup) {
+    final query = _normalizeResidentLookup(lookup);
+    if (query.isEmpty) return true;
+    final fields = [
+      resident.name,
+      resident.nameEn,
+      resident.nickname ?? '',
+      resident.room,
+      resident.id,
+      resident.nationalId ?? '',
+    ].map(_normalizeResidentLookup);
+
+    return fields.any((field) => field == query) ||
+        fields.any((field) => field.startsWith(query)) ||
+        fields.any((field) => field.contains(query));
+  }
+
+  List<SpecialistResidentFile> searchResidentsForNutrition(String query) {
+    final normalized = _normalizeResidentLookup(query);
+    final matches = normalized.isEmpty
+        ? residentFiles
+        : residentFiles
+            .where((resident) => _residentMatchesLookup(resident, normalized))
+            .toList();
+
+    int score(SpecialistResidentFile resident) {
+      final fields = [
+        resident.name,
+        resident.nameEn,
+        resident.nickname ?? '',
+        resident.room,
+        resident.id,
+        resident.nationalId ?? '',
+      ].map(_normalizeResidentLookup).toList();
+      if (fields.any((field) => field == normalized)) return 0;
+      if (fields.any((field) => field.startsWith(normalized))) return 1;
+      return 2;
+    }
+
+    matches.sort((a, b) {
+      final scoreCompare = score(a).compareTo(score(b));
+      if (scoreCompare != 0) return scoreCompare;
+      return a.name.compareTo(b.name);
+    });
+    return matches.take(8).toList();
+  }
+
+  SpecialistResidentFile? findResidentForNutrition(String lookup) {
+    final matches = searchResidentsForNutrition(lookup);
+    return matches.isEmpty ? null : matches.first;
+  }
+
+  ResidentMedicalInfo getNutritionMedicalInfo(SpecialistResidentFile resident) {
+    final stored = getMedicalInfo(resident.name);
+    final meds = medications
+        .where((m) => m.residentName == resident.name)
+        .map((m) => '${m.name} ${m.dosage}'.trim())
+        .where((m) => m.isNotEmpty)
+        .toList();
+
+    return ResidentMedicalInfo(
+      residentName: resident.name,
+      medications: {...stored.medications, ...meds}.toList(),
+      allergies: {
+        ...stored.allergies,
+        ...(resident.allergies ?? const <String>[]),
+      }.toList(),
+      chronicDiseases: {
+        ...stored.chronicDiseases,
+        ...(resident.chronicDiseases ?? const <String>[]),
+        ...(resident.foodRestrictions ?? const <String>[]),
+        if ((resident.dietType ?? '').trim().isNotEmpty) resident.dietType!,
+      }.toList(),
+    );
   }
 
   Future<String?> _syncMedicationDose(
@@ -1800,6 +1899,74 @@ class AppRiverpod extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool toggleFamilyActivityAttendance(
+    Activity activity, {
+    String? residentName,
+  }) {
+    final current = familyActivityParticipations[activity.id] ?? false;
+    final isJoined = !current;
+    familyActivityParticipations[activity.id] = isJoined;
+
+    if (isJoined) {
+      final familyName = (currentAccount?.name.trim().isNotEmpty ?? false)
+          ? currentAccount!.name.trim()
+          : 'أحد أفراد الأسرة';
+      final linkedResidentName =
+          _linkedFamilyResidentName(fallback: residentName);
+      final activityTime = activity.time.trim().isEmpty
+          ? 'اليوم'
+          : 'الساعة ${activity.time.trim()}';
+
+      triggerNotification(
+        title: 'تأكيد حضور نشاط عائلي',
+        body:
+            '$familyName أكد حضوره نشاط "${activity.name}" مع $linkedResidentName في $activityTime.',
+        type: 'activity',
+        targetRole: 'إدارة',
+      );
+
+      triggerNotification(
+        title: 'عائلتك ستكون معك اليوم ❤️',
+        body:
+            '$familyName أكد مشاركته معك في نشاط "${activity.name}" في $activityTime.',
+        type: 'activity',
+        targetRole: 'مسن',
+      );
+    }
+
+    notifyListeners();
+    return isJoined;
+  }
+
+  String _linkedFamilyResidentName({String? fallback}) {
+    final linkedResidentId = currentAccount?.linkedResidentId;
+    final activeResidentId =
+        _looksLikeBackendId(backendResidentId) ? backendResidentId : null;
+    final wantedId = _looksLikeBackendId(linkedResidentId)
+        ? linkedResidentId
+        : activeResidentId;
+
+    if (wantedId != null) {
+      for (final resident in residentFiles) {
+        if (resident.id == wantedId && resident.name.trim().isNotEmpty) {
+          return resident.name.trim();
+        }
+      }
+    }
+
+    final cleanFallback = fallback?.trim() ?? '';
+    if (cleanFallback.isNotEmpty && cleanFallback != 'المقيم العزيز') {
+      return cleanFallback;
+    }
+
+    if (residentFiles.isNotEmpty &&
+        residentFiles.first.name.trim().isNotEmpty) {
+      return residentFiles.first.name.trim();
+    }
+
+    return 'المقيم';
+  }
+
   void updateFamilyActivityNote(String activityId, String note) {
     familyActivityNotes[activityId] = note;
     notifyListeners();
@@ -1814,6 +1981,11 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   List<FamilyMember> familyMembersList = [];
+  final Map<String, Set<String>> _favoriteFamilyMemberIdsByResident = {};
+  final Map<String, int> _familyCardLimitByResident = {};
+  final Set<String> _loadedFamilyCardPreferenceKeys = {};
+  static const int _defaultFamilyCardLimit = 3;
+  static const int _maxFamilyCardLimit = 6;
 
   List<VoiceMessage> voiceMessagesList = [];
 
@@ -1835,7 +2007,8 @@ class AppRiverpod extends ChangeNotifier {
     final resolvedResidentId = residentId ?? backendResidentId;
     if (resolvedResidentId == null || resolvedResidentId.isEmpty) {
       aiInsightMode = 'error';
-      aiInsightError = 'لا يوجد معرف مقيم من السيرفر لجلب توصية الذكاء الاصطناعي';
+      aiInsightError =
+          'لا يوجد معرف مقيم من السيرفر لجلب توصية الذكاء الاصطناعي';
       backendSyncError = aiInsightError;
       notifyListeners();
       return false;
@@ -2034,6 +2207,13 @@ class AppRiverpod extends ChangeNotifier {
     final index = memoriesList.indexWhere((item) => item.id == id);
     if (index == -1) return;
     final item = memoriesList[index];
+    final currentPath = item.assetPath.trim();
+    final currentFile = currentPath.isEmpty || currentPath.startsWith('http')
+        ? null
+        : File(currentPath);
+    final hasLocalFallback = currentFile?.existsSync() == true;
+    final localFallback =
+        hasLocalFallback ? (item.content ?? currentPath) : item.content;
     memoriesList[index] = MemoryItem(
       id: item.id,
       category: item.category,
@@ -2041,7 +2221,7 @@ class AppRiverpod extends ChangeNotifier {
       date: item.date,
       type: item.type,
       assetPath: assetPath,
-      content: item.content,
+      content: localFallback,
     );
     notifyListeners();
     unawaited(_saveLocalAlbums());
@@ -2086,6 +2266,8 @@ class AppRiverpod extends ChangeNotifier {
                 'residentId': m.residentId,
                 'residentName': m.residentName,
                 'imageUrl': m.imageUrl,
+                if ((m.fallbackPath ?? '').trim().isNotEmpty)
+                  'fallbackPath': m.fallbackPath,
                 'activityTitle': m.activityTitle,
                 'date': m.date,
                 'appreciations': m.appreciations,
@@ -2145,7 +2327,10 @@ class AppRiverpod extends ChangeNotifier {
         final map = Map<String, dynamic>.from(rawMoment);
         final id = map['id']?.toString() ?? '';
         final imageUrl = map['imageUrl']?.toString() ?? '';
-        if (id.isEmpty || imageUrl.isEmpty) continue;
+        final fallbackPath = map['fallbackPath']?.toString();
+        if (id.isEmpty || (imageUrl.isEmpty && (fallbackPath ?? '').isEmpty)) {
+          continue;
+        }
         upsertMemoryMoment(
           MemoryMoment(
             id: id,
@@ -2158,8 +2343,8 @@ class AppRiverpod extends ChangeNotifier {
                     ? residentFiles.first.name
                     : 'المقيم'),
             imageUrl: imageUrl,
-            activityTitle:
-                map['activityTitle']?.toString() ?? 'صورة عائلية جديدة',
+            fallbackPath: fallbackPath,
+            activityTitle: map['activityTitle']?.toString() ?? '',
             date: map['date']?.toString() ?? 'اليوم',
             appreciations: map['appreciations'] is num
                 ? (map['appreciations'] as num).toInt()
@@ -2193,7 +2378,7 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   bool _shouldPersistMemoryMoment(MemoryMoment moment) {
-    return moment.imageUrl.trim().isNotEmpty &&
+    return _hasDisplayableMemoryMoment(moment) &&
         (moment.id.startsWith('local_family_') || moment.id.startsWith('fb_'));
   }
 
@@ -2221,8 +2406,263 @@ class AppRiverpod extends ChangeNotifier {
   // --- DYNAMIC QUESTION BANK ---
   Map<String, List<Map<String, dynamic>>> questionBank = {};
 
+  static const int maxAssessmentQuestionsPerCategory = 15;
+
   List<Map<String, dynamic>> getQuestionsForTool(String toolId) {
-    return questionBank[toolId] ?? const [];
+    final questions = _limitedAssessmentQuestions(questionBank[toolId]);
+    if (questions.isNotEmpty) return questions;
+    return _fallbackQuestionsForAssessmentKey(toolId);
+  }
+
+  List<Map<String, dynamic>> getQuestionsForAssessmentTool(
+    SocialSpecialistAssessmentTool tool,
+  ) {
+    final questions = _limitedAssessmentQuestions(questionBank[tool.id]);
+    if (questions.isNotEmpty) return questions;
+    return _fallbackQuestionsForAssessmentTool(tool);
+  }
+
+  List<Map<String, dynamic>> _limitedAssessmentQuestions(
+    List<Map<String, dynamic>>? questions,
+  ) {
+    if (questions == null || questions.isEmpty) return const [];
+    return questions
+        .where((q) => (q['text'] ?? q['question'] ?? '').toString().isNotEmpty)
+        .take(maxAssessmentQuestionsPerCategory)
+        .toList();
+  }
+
+  void _seedFallbackQuestionBank() {
+    for (final entry in _fallbackAssessmentQuestionBank().entries) {
+      questionBank.putIfAbsent(entry.key, () => entry.value);
+    }
+  }
+
+  List<SocialSpecialistAssessmentTool> _fallbackAssessmentTools() {
+    return [
+      SocialSpecialistAssessmentTool(
+        id: 'global_psych_gds15',
+        name: 'تقييم نفسي مختصر',
+        subtitle: 'مبني على GDS-15 لكبار السن - 15 سؤال',
+        score: '0/15',
+        status: 'جديد',
+        icon: '🧠',
+      ),
+      SocialSpecialistAssessmentTool(
+        id: 'global_social_lsns_ucla',
+        name: 'تقييم اجتماعي',
+        subtitle: 'عزلة ودعم اجتماعي LSNS-6 + UCLA-3 - 9 أسئلة',
+        score: '0/9',
+        status: 'جديد',
+        icon: '🤝',
+      ),
+      SocialSpecialistAssessmentTool(
+        id: 'global_functional_katz_lawton',
+        name: 'تقييم وظيفي وبدني',
+        subtitle: 'Katz ADL + Lawton IADL - 14 سؤال',
+        score: '0/14',
+        status: 'جديد',
+        icon: '🏃',
+      ),
+      SocialSpecialistAssessmentTool(
+        id: 'global_health_mna_braden',
+        name: 'تقييم صحي وتغذوي',
+        subtitle: 'MNA-SF + Braden domains - 12 سؤال',
+        score: '0/12',
+        status: 'جديد',
+        icon: '❤️',
+      ),
+    ];
+  }
+
+  List<Map<String, dynamic>> _fallbackQuestionsForAssessmentTool(
+    SocialSpecialistAssessmentTool tool,
+  ) {
+    final key = _assessmentFallbackKey(
+      '${tool.id} ${tool.name} ${tool.subtitle} ${tool.icon}',
+    );
+    return _fallbackQuestionsForAssessmentKey(key);
+  }
+
+  List<Map<String, dynamic>> _fallbackQuestionsForAssessmentKey(String value) {
+    final key = _assessmentFallbackKey(value);
+    return _fallbackAssessmentQuestionBank()[key] ??
+        _fallbackAssessmentQuestionBank()['psych']!;
+  }
+
+  String _assessmentFallbackKey(String value) {
+    final text = value.toLowerCase();
+    if (text.contains('social') ||
+        text.contains('family') ||
+        text.contains('relation') ||
+        text.contains('اجتما') ||
+        text.contains('علاق') ||
+        text.contains('أسرة') ||
+        text.contains('عزلة') ||
+        text.contains('🤝')) {
+      return 'social';
+    }
+    if (text.contains('phys') ||
+        text.contains('mobil') ||
+        text.contains('adl') ||
+        text.contains('function') ||
+        text.contains('بدن') ||
+        text.contains('حرك') ||
+        text.contains('وظيف') ||
+        text.contains('نشاط') ||
+        text.contains('🏃')) {
+      return 'functional';
+    }
+    if (text.contains('health') ||
+        text.contains('medical') ||
+        text.contains('nutrition') ||
+        text.contains('mna') ||
+        text.contains('braden') ||
+        text.contains('صحي') ||
+        text.contains('طبي') ||
+        text.contains('تغذ') ||
+        text.contains('رعاية') ||
+        text.contains('❤️')) {
+      return 'health';
+    }
+    return 'psych';
+  }
+
+  Map<String, List<Map<String, dynamic>>> _fallbackAssessmentQuestionBank() {
+    const yesNo = ['نعم', 'لا'];
+    const frequency = ['نادراً أو أبداً', 'أحياناً', 'غالباً'];
+    const supportFrequency = [
+      'أقل من مرة شهرياً',
+      'شهرياً',
+      'أسبوعياً',
+      'يومياً'
+    ];
+    const independence = ['مستقل', 'يحتاج مساعدة جزئية', 'يعتمد على الآخرين'];
+    const nutrition = ['طبيعي/مستقر', 'تغير متوسط', 'تدهور واضح'];
+
+    Map<String, dynamic> q(
+      String id,
+      String text, {
+      List<String>? options,
+    }) {
+      return {
+        'id': id,
+        'text': text,
+        'type': 'choice',
+        'options': options ?? yesNo,
+      };
+    }
+
+    return {
+      'psych': [
+        q('gds15_01', 'GDS-15: هل أنت راضٍ بشكل عام عن حياتك؟'),
+        q('gds15_02', 'GDS-15: هل توقفت عن كثير من اهتماماتك أو أنشطتك؟'),
+        q('gds15_03', 'GDS-15: هل تشعر أن حياتك فارغة؟'),
+        q('gds15_04', 'GDS-15: هل تشعر بالملل كثيراً؟'),
+        q('gds15_05', 'GDS-15: هل تكون في مزاج جيد معظم الوقت؟'),
+        q('gds15_06', 'GDS-15: هل تخشى أن يحدث لك شيء سيئ؟'),
+        q('gds15_07', 'GDS-15: هل تشعر بالسعادة معظم الوقت؟'),
+        q('gds15_08', 'GDS-15: هل تشعر غالباً بالعجز أو قلة الحيلة؟'),
+        q('gds15_09',
+            'GDS-15: هل تفضل البقاء في الغرفة بدل الخروج أو المشاركة؟'),
+        q('gds15_10', 'GDS-15: هل تشعر أن ذاكرتك أسوأ من أغلب من هم في سنك؟'),
+        q('gds15_11', 'GDS-15: هل ترى أن الحياة الآن جيدة وممتعة؟'),
+        q('gds15_12', 'GDS-15: هل تشعر بأنك بلا قيمة كما أنت الآن؟'),
+        q('gds15_13', 'GDS-15: هل تشعر بوجود طاقة كافية خلال اليوم؟'),
+        q('gds15_14', 'GDS-15: هل تشعر أن وضعك الحالي بلا أمل؟'),
+        q('gds15_15', 'GDS-15: هل ترى أن أغلب الناس أفضل حالاً منك؟'),
+      ],
+      'social': [
+        q('lsns_01', 'LSNS-6: كم مرة تتواصل مع أحد أفراد الأسرة أو الأقارب؟',
+            options: supportFrequency),
+        q('lsns_02',
+            'LSNS-6: كم عدد الأقارب الذين يمكن طلب المساعدة منهم عند الحاجة؟',
+            options: ['لا يوجد', 'واحد أو اثنان', 'ثلاثة فأكثر']),
+        q('lsns_03',
+            'LSNS-6: كم عدد الأقارب الذين يمكن الحديث معهم عن أمور خاصة؟',
+            options: ['لا يوجد', 'واحد أو اثنان', 'ثلاثة فأكثر']),
+        q('lsns_04',
+            'LSNS-6: كم مرة تتواصل مع صديق أو زميل داخل أو خارج الدار؟',
+            options: supportFrequency),
+        q('lsns_05', 'LSNS-6: كم عدد الأصدقاء الذين يمكن طلب المساعدة منهم؟',
+            options: ['لا يوجد', 'واحد أو اثنان', 'ثلاثة فأكثر']),
+        q('lsns_06', 'LSNS-6: كم عدد الأصدقاء الذين يمكن الحديث معهم بثقة؟',
+            options: ['لا يوجد', 'واحد أو اثنان', 'ثلاثة فأكثر']),
+        q('ucla3_01', 'UCLA-3: كم مرة تشعر بنقص الصحبة أو الرفقة؟',
+            options: frequency),
+        q('ucla3_02', 'UCLA-3: كم مرة تشعر بأنك مستبعد أو غير مندمج؟',
+            options: frequency),
+        q('ucla3_03', 'UCLA-3: كم مرة تشعر بالعزلة عن الآخرين؟',
+            options: frequency),
+      ],
+      'functional': [
+        q('katz_01', 'Katz ADL: الاستحمام والعناية بالنظافة الشخصية.',
+            options: independence),
+        q('katz_02', 'Katz ADL: ارتداء الملابس وخلعها.', options: independence),
+        q('katz_03', 'Katz ADL: استخدام الحمام بأمان.', options: independence),
+        q('katz_04', 'Katz ADL: الانتقال من السرير إلى الكرسي أو العكس.',
+            options: independence),
+        q('katz_05',
+            'Katz ADL: التحكم في الإخراج أو التعامل مع الاحتياج للمساعدة.',
+            options: independence),
+        q('katz_06', 'Katz ADL: تناول الطعام دون مساعدة.',
+            options: independence),
+        q('lawton_01', 'Lawton IADL: استخدام الهاتف أو وسيلة تواصل مناسبة.',
+            options: independence),
+        q('lawton_02', 'Lawton IADL: إدارة الأدوية أو تذكر مواعيدها.',
+            options: independence),
+        q('lawton_03',
+            'Lawton IADL: إدارة المصروفات أو المتعلقات الشخصية البسيطة.',
+            options: independence),
+        q('lawton_04', 'Lawton IADL: اختيار الملابس أو المستلزمات اليومية.',
+            options: independence),
+        q('lawton_05', 'Lawton IADL: التنقل داخل الدار أو الوصول للأنشطة.',
+            options: independence),
+        q('lawton_06', 'Lawton IADL: المشاركة في ترتيب المساحة الشخصية.',
+            options: independence),
+        q('lawton_07', 'Lawton IADL: القدرة على طلب المساعدة عند الحاجة.',
+            options: independence),
+        q('lawton_08', 'Lawton IADL: متابعة التعليمات اليومية البسيطة.',
+            options: independence),
+      ],
+      'health': [
+        q('mna_sf_01',
+            'MNA-SF: هل قلّ تناول الطعام مؤخراً بسبب فقدان شهية أو صعوبة بلع/مضغ؟',
+            options: nutrition),
+        q('mna_sf_02', 'MNA-SF: هل حدث فقدان وزن ملحوظ خلال آخر ثلاثة أشهر؟',
+            options: nutrition),
+        q('mna_sf_03', 'MNA-SF: مستوى الحركة الحالي داخل الدار.', options: [
+          'حر الحركة',
+          'حركة محدودة',
+          'ملازم للسرير/الكرسي غالباً'
+        ]),
+        q('mna_sf_04', 'MNA-SF: هل تعرض لضغط نفسي أو مرض حاد مؤخراً؟',
+            options: yesNo),
+        q('mna_sf_05',
+            'MNA-SF: هل توجد مشكلات معرفية أو مزاجية تؤثر على الأكل؟',
+            options: ['لا توجد', 'خفيفة', 'متوسطة أو شديدة']),
+        q('mna_sf_06',
+            'MNA-SF: مؤشر الكتلة/المظهر التغذوي العام حسب التقييم المتاح.',
+            options: [
+              'ضمن الطبيعي',
+              'احتمال نقص تغذية',
+              'نقص واضح يحتاج تدخل'
+            ]),
+        q('braden_01',
+            'Braden: قدرة المقيم على الإحساس بالضغط أو الألم الموضعي.',
+            options: ['جيدة', 'محدودة قليلاً', 'محدودة بوضوح']),
+        q('braden_02', 'Braden: تعرض الجلد للرطوبة خلال اليوم.',
+            options: ['نادراً', 'أحياناً', 'متكرر']),
+        q('braden_03', 'Braden: مستوى النشاط والحركة اليومية.',
+            options: ['يمشي/يتحرك جيداً', 'حركة محدودة', 'ملازم غالباً']),
+        q('braden_04', 'Braden: القدرة على تغيير الوضعية دون مساعدة.',
+            options: ['مستقل', 'يحتاج تذكير/مساعدة', 'يعتمد على المساعدة']),
+        q('braden_05', 'Braden: كفاية التغذية والسوائل خلال اليوم.',
+            options: ['كافية', 'غير منتظمة', 'ضعيفة']),
+        q('braden_06', 'Braden: احتكاك الجلد أو الانزلاق أثناء الحركة/النقل.',
+            options: ['لا يوجد غالباً', 'أحياناً', 'متكرر']),
+      ],
+    };
   }
 
   String selectedSpecialistFilter = 'الكل';
@@ -2398,6 +2838,63 @@ class AppRiverpod extends ChangeNotifier {
     }
   }
 
+  final Set<String> _familyRemindedMedicationKeys = {};
+
+  String _familyMedicationReminderKey(Medication medication) {
+    final scheduled = medication.scheduledTime;
+    if (scheduled == null) return medication.id;
+    final date =
+        '${scheduled.year}-${scheduled.month.toString().padLeft(2, '0')}-${scheduled.day.toString().padLeft(2, '0')}';
+    return '${medication.id}|$date';
+  }
+
+  void _pruneFamilyMedicationReminderKeys() {
+    final activeKeys = medications.map(_familyMedicationReminderKey).toSet();
+    _familyRemindedMedicationKeys
+        .removeWhere((key) => !activeKeys.contains(key));
+  }
+
+  Medication? get familyMedicationReminder {
+    _pruneFamilyMedicationReminderKeys();
+    final now = DateTime.now();
+    final dueMeds = medications.where((m) {
+      final isDue = m.scheduledTime == null || !m.scheduledTime!.isAfter(now);
+      return m.dayTag == 'اليوم' &&
+          !m.isTaken &&
+          !m.isElderlyConfirmed &&
+          !m.isSkipped &&
+          isDue &&
+          !_familyRemindedMedicationKeys
+              .contains(_familyMedicationReminderKey(m));
+    }).toList()
+      ..sort((a, b) {
+        final aTime = a.scheduledTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.scheduledTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return aTime.compareTo(bTime);
+      });
+
+    return dueMeds.isEmpty ? null : dueMeds.first;
+  }
+
+  int get remainingSecondsToNextFamilyReminder {
+    _pruneFamilyMedicationReminderKeys();
+    final now = DateTime.now();
+    final upcomingMeds = medications.where((m) {
+      return m.dayTag == 'اليوم' &&
+          !m.isTaken &&
+          !m.isElderlyConfirmed &&
+          !m.isSkipped &&
+          m.scheduledTime != null &&
+          m.scheduledTime!.isAfter(now) &&
+          !_familyRemindedMedicationKeys
+              .contains(_familyMedicationReminderKey(m));
+    }).toList()
+      ..sort((a, b) => a.scheduledTime!.compareTo(b.scheduledTime!));
+
+    if (upcomingMeds.isEmpty) return 0;
+    return upcomingMeds.first.scheduledTime!.difference(now).inSeconds;
+  }
+
   int get remainingSecondsToNextMed {
     final next = nextMedication;
     if (next == null || next.scheduledTime == null) return 0;
@@ -2406,6 +2903,216 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   List<FamilyMember> get familyMembers => familyMembersList;
+
+  String _activeResidentIdForFamilyCard(String? residentId) {
+    final explicit = residentId?.trim() ?? '';
+    if (_looksLikeBackendId(explicit)) return explicit;
+
+    final backend = backendResidentId?.trim() ?? '';
+    if (_looksLikeBackendId(backend)) return backend;
+
+    final linked = currentAccount?.linkedResidentId?.trim() ?? '';
+    if (_looksLikeBackendId(linked)) return linked;
+
+    if (residentFiles.length == 1 &&
+        _looksLikeBackendId(residentFiles.first.id)) {
+      return residentFiles.first.id;
+    }
+    return '';
+  }
+
+  String _familyCardPreferenceKey(String? residentId) {
+    final activeResidentId = _activeResidentIdForFamilyCard(residentId);
+    if (activeResidentId.isNotEmpty) return activeResidentId;
+
+    final accountKey = currentAccount?.email.trim();
+    if (accountKey != null && accountKey.isNotEmpty) return accountKey;
+
+    final userId = backendUserId?.trim() ?? '';
+    if (userId.isNotEmpty) return userId;
+
+    return 'default';
+  }
+
+  String _familyCardStorageKey(String preferenceKey, String suffix) {
+    final safeKey =
+        base64Url.encode(utf8.encode(preferenceKey)).replaceAll('=', '');
+    return 'resident_family_card_${suffix}_$safeKey';
+  }
+
+  int _clampFamilyCardLimit(int value) {
+    return value.clamp(1, _maxFamilyCardLimit).toInt();
+  }
+
+  Future<void> loadFamilyCardPreferences({String? residentId}) async {
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    if (_loadedFamilyCardPreferenceKeys.contains(preferenceKey)) return;
+
+    try {
+      final favoritesRaw = await _storage.read(
+        key: _familyCardStorageKey(preferenceKey, 'favorites'),
+      );
+      if (favoritesRaw != null && favoritesRaw.trim().isNotEmpty) {
+        final decoded = jsonDecode(favoritesRaw);
+        if (decoded is List) {
+          _favoriteFamilyMemberIdsByResident[preferenceKey] = decoded
+              .map((value) => value.toString().trim())
+              .where((value) => value.isNotEmpty)
+              .toSet();
+        }
+      }
+
+      final limitRaw = await _storage.read(
+        key: _familyCardStorageKey(preferenceKey, 'limit'),
+      );
+      final limit = int.tryParse(limitRaw ?? '');
+      if (limit != null) {
+        _familyCardLimitByResident[preferenceKey] =
+            _clampFamilyCardLimit(limit);
+      }
+
+      _loadedFamilyCardPreferenceKeys.add(preferenceKey);
+      _pruneFamilyCardFavorites(preferenceKey);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Failed to load family card preferences: $e');
+    }
+  }
+
+  List<FamilyMember> familyMembersForCurrentResident({String? residentId}) {
+    final activeResidentId = _activeResidentIdForFamilyCard(residentId);
+    final byId = <String, FamilyMember>{};
+
+    void addIfLinked(FamilyMember member) {
+      final memberResidentId = member.residentId?.trim() ?? '';
+      if (memberResidentId.isEmpty) return;
+      if (activeResidentId.isNotEmpty && memberResidentId != activeResidentId) {
+        return;
+      }
+      byId[member.id] = member;
+    }
+
+    for (final member in familyMembersList) {
+      addIfLinked(member);
+    }
+    for (final resident in residentFiles) {
+      if (activeResidentId.isNotEmpty && resident.id != activeResidentId) {
+        continue;
+      }
+      for (final member in resident.familyMembers) {
+        addIfLinked(member);
+      }
+    }
+
+    return byId.values.toList();
+  }
+
+  Set<String> _defaultFamilyFavoriteIds(List<FamilyMember> members) {
+    final pinnedIds = members
+        .where((member) => member.isPinned)
+        .map((member) => member.id)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (pinnedIds.isNotEmpty) return pinnedIds;
+    return members
+        .map((member) => member.id)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
+
+  Set<String> _effectiveFamilyFavoriteIds(
+    String preferenceKey,
+    List<FamilyMember> members,
+  ) {
+    if (_favoriteFamilyMemberIdsByResident.containsKey(preferenceKey)) {
+      return Set<String>.from(
+          _favoriteFamilyMemberIdsByResident[preferenceKey]!);
+    }
+    return _defaultFamilyFavoriteIds(members);
+  }
+
+  List<FamilyMember> favoriteFamilyMembersForCurrentResident({
+    String? residentId,
+    bool ignoreLimit = false,
+  }) {
+    final members = familyMembersForCurrentResident(residentId: residentId);
+    if (members.isEmpty) return const [];
+
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    final favoriteIds = _effectiveFamilyFavoriteIds(preferenceKey, members);
+    final selected =
+        members.where((member) => favoriteIds.contains(member.id)).toList();
+    final limit = ignoreLimit
+        ? selected.length
+        : familyCardDisplayLimitForCurrentResident(residentId: residentId);
+    return selected.take(limit).toList();
+  }
+
+  int familyCardDisplayLimitForCurrentResident({String? residentId}) {
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    return _familyCardLimitByResident[preferenceKey] ?? _defaultFamilyCardLimit;
+  }
+
+  bool isFamilyCardFavorite(String memberId, {String? residentId}) {
+    final members = familyMembersForCurrentResident(residentId: residentId);
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    final favoriteIds = _effectiveFamilyFavoriteIds(preferenceKey, members);
+    return favoriteIds.contains(memberId);
+  }
+
+  Future<void> setFamilyCardFavorite(
+    String memberId,
+    bool isFavorite, {
+    String? residentId,
+  }) async {
+    final members = familyMembersForCurrentResident(residentId: residentId);
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    final favoriteIds = _effectiveFamilyFavoriteIds(preferenceKey, members);
+
+    if (isFavorite) {
+      favoriteIds.add(memberId);
+    } else {
+      favoriteIds.remove(memberId);
+    }
+
+    _favoriteFamilyMemberIdsByResident[preferenceKey] = favoriteIds;
+    await _storage.write(
+      key: _familyCardStorageKey(preferenceKey, 'favorites'),
+      value: jsonEncode(favoriteIds.toList()),
+    );
+    notifyListeners();
+  }
+
+  Future<void> setFamilyCardDisplayLimit(
+    int limit, {
+    String? residentId,
+  }) async {
+    final preferenceKey = _familyCardPreferenceKey(residentId);
+    final clamped = _clampFamilyCardLimit(limit);
+    _familyCardLimitByResident[preferenceKey] = clamped;
+    await _storage.write(
+      key: _familyCardStorageKey(preferenceKey, 'limit'),
+      value: clamped.toString(),
+    );
+    notifyListeners();
+  }
+
+  void _pruneFamilyCardFavorites(String preferenceKey) {
+    if (!_favoriteFamilyMemberIdsByResident.containsKey(preferenceKey)) return;
+
+    final validIds = familyMembersForCurrentResident(residentId: preferenceKey)
+        .map((member) => member.id)
+        .toSet();
+    final favorites = _favoriteFamilyMemberIdsByResident[preferenceKey]!;
+    final before = favorites.length;
+    favorites.removeWhere((id) => !validIds.contains(id));
+    if (favorites.length == before) return;
+
+    unawaited(_storage.write(
+      key: _familyCardStorageKey(preferenceKey, 'favorites'),
+      value: jsonEncode(favorites.toList()),
+    ));
+  }
 
   Future<void> fetchFavoriteContacts() async {
     if (await FlutterContacts.requestPermission()) {
@@ -2550,6 +3257,7 @@ class AppRiverpod extends ChangeNotifier {
                     (e['options'] as List?)?.map((o) => o.toString()).toList(),
               ))
           .where((q) => q.id.isNotEmpty && q.text.isNotEmpty)
+          .take(maxAssessmentQuestionsPerCategory)
           .toList();
       if (loaded.isNotEmpty) gdsQuestions = loaded;
       notifyListeners();
@@ -2563,9 +3271,11 @@ class AppRiverpod extends ChangeNotifier {
     try {
       final raw = await SocialService.instance.getToolQuestions(toolId);
       questionBank = Map<String, List<Map<String, dynamic>>>.from(questionBank)
-        ..[toolId] = raw;
+        ..[toolId] = _limitedAssessmentQuestions(raw);
       notifyListeners();
     } catch (e) {
+      questionBank = Map<String, List<Map<String, dynamic>>>.from(questionBank)
+        ..putIfAbsent(toolId, () => _fallbackQuestionsForAssessmentKey(toolId));
       backendSyncError = e.toString();
       notifyListeners();
     }
@@ -2632,14 +3342,26 @@ class AppRiverpod extends ChangeNotifier {
     unawaited(syncBackendData());
   }
 
-  Future<void> deleteStaff(String id) async {
+  Future<bool> deleteStaff(String id) async {
+    final staffIndex = staffPerformanceList.indexWhere(
+        (s) => s.id == id || s.managedUserId == id || s.authUserId == id);
+    if (staffIndex == -1) return false;
+
+    final staff = staffPerformanceList[staffIndex];
     final synced = await _runBackendMutation(() {
-      return BackendMutationService.instance.disableManagedUser(id);
+      return BackendMutationService.instance.disableManagedUser(
+        staff.managedUserId ?? staff.id,
+        fallbackIds: [
+          staff.id,
+          if (staff.authUserId != null) staff.authUserId!,
+        ],
+      );
     });
-    if (!synced) return;
-    staffPerformanceList.removeWhere((s) => s.id == id);
+    if (!synced) return false;
+    staffPerformanceList.removeAt(staffIndex);
     notifyListeners();
     unawaited(syncBackendData());
+    return true;
   }
 
   Future<bool?> pickAndSetResidentImage(String residentId) async {
@@ -2681,11 +3403,34 @@ class AppRiverpod extends ChangeNotifier {
     }
   }
 
-  Future<void> pickAndSetStaffImage(String staffId) async {
+  Future<bool?> pickAndSetStaffImage(String staffId) async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      updateStaffImage(staffId, image.path);
+    if (image == null) return null;
+
+    updateStaffImage(staffId, image.path);
+    try {
+      final uploaded = await ProfileImageService.instance.uploadStaffImage(
+        staffId: staffId,
+        image: image,
+      );
+      final remoteUrl = uploaded.imageUrl.trim();
+      if (remoteUrl.isEmpty) {
+        throw ApiException(500, 'لم يرجع الباك اند رابط صورة الموظف');
+      }
+      updateStaffImage(staffId, remoteUrl);
+      backendSyncError = null;
+      notifyListeners();
+      unawaited(syncBackendData());
+      return true;
+    } on ApiException catch (e) {
+      backendSyncError = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      backendSyncError = e.toString();
+      notifyListeners();
+      return false;
     }
   }
 
@@ -3395,13 +4140,36 @@ class AppRiverpod extends ChangeNotifier {
   List<dynamic> _allPhotoMemories() {
     final results = <dynamic>[];
     final seen = <String>{};
-    for (final item in memoriesList.where((m) => m.type == 'image')) {
-      final key = item.assetPath.isNotEmpty ? item.assetPath : item.id;
+    for (final item in memoriesList.where(
+        (m) => m.type == 'image' && _memoryItemImageCandidates(m).isNotEmpty)) {
+      final key = _memoryItemImageCandidates(item).first;
       if (seen.add(key)) results.add(item);
     }
-    for (final moment in memoryMoments.where((m) => m.imageUrl.isNotEmpty)) {
-      final key = moment.imageUrl.isNotEmpty ? moment.imageUrl : moment.id;
+    for (final moment in memoryMoments.where(_hasDisplayableMemoryMoment)) {
+      final key = _memoryMomentImageCandidates(moment).first;
       if (seen.add(key)) results.add(moment);
+    }
+    return results;
+  }
+
+  List<String> _memoryItemImageCandidates(MemoryItem item) {
+    final seen = <String>{};
+    return [item.assetPath, item.content]
+        .map((value) => value?.trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .where(_hasDisplayableMemoryImage)
+        .where((value) => seen.add(value))
+        .toList();
+  }
+
+  List<MemoryItem> _dedupeMemoryItems(List<MemoryItem> items) {
+    final results = <MemoryItem>[];
+    final seen = <String>{};
+    for (final item in items) {
+      final candidates = _memoryItemImageCandidates(item);
+      final key = candidates.isNotEmpty ? candidates.first : item.id;
+      if (key.isEmpty || !seen.add(key)) continue;
+      results.add(item);
     }
     return results;
   }
@@ -3685,6 +4453,9 @@ class AppRiverpod extends ChangeNotifier {
           description: opp.description,
           totalSlots: opp.totalSlots,
           filledSlots: opp.filledSlots + 1,
+          targetAudience: opp.targetAudience,
+          targetResident: opp.targetResident,
+          requiredSkills: opp.requiredSkills,
         );
 
         triggerNotification(
@@ -3844,30 +4615,46 @@ class AppRiverpod extends ChangeNotifier {
     unawaited(syncBackendData());
   }
 
-  Future<void> approveVisit(String id) async {
+  Future<bool> approveVisit(String id) async {
     final synced = await _runBackendMutation(() {
       return BackendMutationService.instance.approveVisit(id);
     });
-    if (!synced) return;
+    if (!synced) return false;
     final idx = familyVisits.indexWhere((v) => v.id == id);
     if (idx != -1) {
       familyVisits[idx] = familyVisits[idx].copyWith(status: 'upcoming');
       notifyListeners();
     }
     unawaited(syncBackendData());
+    return true;
   }
 
-  Future<void> rejectVisit(String id) async {
+  Future<bool> rejectVisit(String id) async {
     final synced = await _runBackendMutation(() {
       return BackendMutationService.instance.rejectVisit(id);
     });
-    if (!synced) return;
+    if (!synced) return false;
     final idx = familyVisits.indexWhere((v) => v.id == id);
     if (idx != -1) {
       familyVisits[idx] = familyVisits[idx].copyWith(status: 'cancelled');
       notifyListeners();
     }
     unawaited(syncBackendData());
+    return true;
+  }
+
+  Future<bool> cancelFamilyVisit(String id) async {
+    final synced = await _runBackendMutation(() {
+      return BackendMutationService.instance.cancelVisit(id);
+    });
+    if (!synced) return false;
+    final idx = familyVisits.indexWhere((v) => v.id == id);
+    if (idx != -1) {
+      familyVisits[idx] = familyVisits[idx].copyWith(status: 'cancelled');
+      notifyListeners();
+    }
+    unawaited(syncBackendData());
+    return true;
   }
 
   void sendFamilyMessage(String message, String residentName) {
@@ -4246,9 +5033,35 @@ class AppRiverpod extends ChangeNotifier {
       final matchesResident = residentId == null ||
           residentId.isEmpty ||
           moment.residentId == residentId;
-      return matchesResident && moment.imageUrl.trim().isNotEmpty;
+      return matchesResident && _hasDisplayableMemoryMoment(moment);
     }).toList();
     return _dedupeMemoryMoments(filtered);
+  }
+
+  bool _hasDisplayableMemoryMoment(MemoryMoment moment) {
+    return _memoryMomentImageCandidates(moment).any(_hasDisplayableMemoryImage);
+  }
+
+  List<String> _memoryMomentImageCandidates(MemoryMoment moment) {
+    final seen = <String>{};
+    return [moment.imageUrl, moment.fallbackPath]
+        .map((value) => value?.trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .where((value) => seen.add(value))
+        .toList();
+  }
+
+  bool _hasDisplayableMemoryImage(String imageUrl) {
+    final value = imageUrl.trim();
+    if (value.isEmpty) return false;
+    if (value.startsWith('http://') ||
+        value.startsWith('https://') ||
+        value.startsWith('blob:') ||
+        value.startsWith('data:image') ||
+        (value.startsWith('/') && !value.startsWith('//'))) {
+      return true;
+    }
+    return File(value).existsSync();
   }
 
   void upsertMemoryMoment(
@@ -4280,20 +5093,22 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   void _upsertMemoryItemFromMoment(MemoryMoment moment, {String? replaceId}) {
-    if (moment.imageUrl.trim().isEmpty) return;
+    if (!_hasDisplayableMemoryMoment(moment)) return;
     final itemId = 'wall_${moment.id}';
     final replaceItemId = replaceId == null ? null : 'wall_$replaceId';
     final existingIndex = memoriesList.indexWhere((item) =>
         item.id == itemId ||
         (replaceItemId != null && item.id == replaceItemId) ||
         (item.assetPath.isNotEmpty && item.assetPath == moment.imageUrl));
+    final imageCandidates = _memoryMomentImageCandidates(moment);
     final item = MemoryItem(
       id: itemId,
       category: 'أسرة',
       title: moment.activityTitle,
       date: moment.date,
       type: 'image',
-      assetPath: moment.imageUrl,
+      assetPath: imageCandidates.first,
+      content: imageCandidates.length > 1 ? imageCandidates[1] : null,
     );
     if (existingIndex == -1) {
       memoriesList.insert(0, item);
@@ -4330,6 +5145,8 @@ class AppRiverpod extends ChangeNotifier {
     if (moment.id.isNotEmpty) keys.add('id:${moment.id}');
     final imageUrl = moment.imageUrl.trim();
     if (imageUrl.isNotEmpty) keys.add('url:$imageUrl');
+    final fallbackPath = moment.fallbackPath?.trim() ?? '';
+    if (fallbackPath.isNotEmpty) keys.add('fallback:$fallbackPath');
     if (keys.isEmpty) {
       keys.add('${moment.residentId}|${moment.activityTitle}|${moment.date}');
     }
@@ -4340,9 +5157,26 @@ class AppRiverpod extends ChangeNotifier {
     MemoryMoment current,
     MemoryMoment candidate,
   ) {
-    if (current.imageUrl.trim().isEmpty &&
-        candidate.imageUrl.trim().isNotEmpty) {
+    final currentHasImage = _hasDisplayableMemoryMoment(current);
+    final candidateHasImage = _hasDisplayableMemoryMoment(candidate);
+    if (!currentHasImage && candidateHasImage) {
       return candidate;
+    }
+    final currentFallback = current.fallbackPath?.trim() ?? '';
+    final candidateFallback = candidate.fallbackPath?.trim() ?? '';
+    if (currentFallback.isEmpty && candidateFallback.isNotEmpty) {
+      return MemoryMoment(
+        id: current.id,
+        residentId: current.residentId,
+        residentName: current.residentName,
+        imageUrl: current.imageUrl,
+        fallbackPath: candidateFallback,
+        activityTitle: current.activityTitle.isNotEmpty
+            ? current.activityTitle
+            : candidate.activityTitle,
+        date: current.date,
+        appreciations: current.appreciations,
+      );
     }
     return current;
   }
@@ -4404,6 +5238,7 @@ class AppRiverpod extends ChangeNotifier {
         residentId: m.residentId,
         residentName: m.residentName,
         imageUrl: m.imageUrl,
+        fallbackPath: m.fallbackPath,
         activityTitle: m.activityTitle,
         date: m.date,
         appreciations: m.appreciations + 1,
@@ -4616,13 +5451,31 @@ class AppRiverpod extends ChangeNotifier {
       senderId: 'resident', // Special ID for the resident themselves
       title: title,
       timeDescription: 'الآن',
-      audioUrl: field(['audioUrl', 'audio_url', 'mediaUrl', 'media_url'],
-                  audioPath ?? '')
+      audioUrl: field([
+        'audioUrl',
+        'audio_url',
+        'mediaUrl',
+        'media_url',
+        'downloadUrl',
+        'download_url',
+        'fileUrl',
+        'file_url',
+        'url',
+      ], audioPath ?? '')
               .trim()
               .isEmpty
           ? audioPath
-          : field(['audioUrl', 'audio_url', 'mediaUrl', 'media_url'],
-              audioPath ?? ''),
+          : field([
+              'audioUrl',
+              'audio_url',
+              'mediaUrl',
+              'media_url',
+              'downloadUrl',
+              'download_url',
+              'fileUrl',
+              'file_url',
+              'url',
+            ], audioPath ?? ''),
       durationSeconds: durationSeconds,
       recipientId: recipientId ?? familyMemberId,
       recipientName: recipientName,
@@ -4634,6 +5487,14 @@ class AppRiverpod extends ChangeNotifier {
       ),
     );
     voiceMessagesList.insert(0, newMsg);
+    await _deliverResidentVoiceMessageToFamilyChat(
+      title: title,
+      residentId: residentId,
+      audioUrl: newMsg.audioUrl,
+      durationSeconds: durationSeconds,
+      requestedRecipientId: recipientId,
+      requestedFamilyMemberId: familyMemberId,
+    );
 
     // Add points for communicating!
     addPoints(15);
@@ -4648,6 +5509,58 @@ class AppRiverpod extends ChangeNotifier {
     notifyListeners();
     unawaited(syncBackendData());
     return newMsg;
+  }
+
+  Future<void> _deliverResidentVoiceMessageToFamilyChat({
+    required String title,
+    required String residentId,
+    required String? audioUrl,
+    required int durationSeconds,
+    String? requestedRecipientId,
+    String? requestedFamilyMemberId,
+  }) async {
+    final cleanAudioUrl = audioUrl?.trim() ?? '';
+    if (cleanAudioUrl.isEmpty) return;
+
+    final recipients = <String>{};
+    final cleanRequestedRecipientId = requestedRecipientId?.trim() ?? '';
+    if (cleanRequestedRecipientId.isNotEmpty) {
+      recipients.add(cleanRequestedRecipientId);
+    } else if ((requestedFamilyMemberId ?? '').trim().isNotEmpty) {
+      final member = familyMembersList
+          .where((m) => m.id == requestedFamilyMemberId)
+          .firstOrNull;
+      final memberUserId = member?.userId?.trim() ?? '';
+      if (memberUserId.isNotEmpty) recipients.add(memberUserId);
+    } else {
+      for (final member in familyMembersList) {
+        final memberResidentId = member.residentId?.trim() ?? '';
+        final belongsToResident =
+            memberResidentId.isEmpty || memberResidentId == residentId;
+        final memberUserId = member.userId?.trim() ?? '';
+        if (belongsToResident && memberUserId.isNotEmpty) {
+          recipients.add(memberUserId);
+        }
+      }
+    }
+
+    if (recipients.isEmpty) return;
+
+    for (final familyUserId in recipients) {
+      try {
+        await MessagesService.instance.send(
+          recipientId: familyUserId,
+          body: 'رسالة صوتية من المقيم: $title',
+          residentId: residentId,
+          mediaUrl: cleanAudioUrl,
+          mediaType: 'audio/mp4',
+        );
+      } catch (e) {
+        backendSyncError = 'تم حفظ الرسالة الصوتية لكن تعذر توصيلها للشات: $e';
+      }
+    }
+
+    unawaited(loadMessageInbox());
   }
 
   Future<void> sendVoiceMessageFromFamily(
@@ -4811,21 +5724,25 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   Future<void> addMealPlan(MealPlan plan) async {
-    final residentId = _residentIdForName(plan.residentName);
+    final resident = findResidentForNutrition(plan.residentName);
+    final residentName = resident?.name ?? plan.residentName.trim();
+    final residentId =
+        resident != null ? resident.id : _residentIdForName(residentName);
     if (residentId == null) {
       backendSyncError =
-          'لا يوجد residentId من السيرفر لإضافة خطة وجبات لـ ${plan.residentName}';
+          'لا يوجد residentId من السيرفر لإضافة خطة وجبات لـ $residentName';
       notifyListeners();
       return;
     }
+    final planToSave = _mealPlanWithResidentName(plan, residentName);
     final synced = await _runBackendMutation(() {
       return BackendMutationService.instance.createMealPlan(
         residentId: residentId,
-        plan: plan,
+        plan: planToSave,
       );
     });
     if (!synced) return;
-    mealPlans.add(plan);
+    mealPlans.add(planToSave);
     notifyListeners();
     unawaited(syncBackendData());
   }
@@ -4936,27 +5853,42 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   Future<void> updateMealPlan(MealPlan plan) async {
-    final idx =
-        mealPlans.indexWhere((p) => p.residentName == plan.residentName);
-    final id = mealPlanIdsByResidentName[plan.residentName];
+    final resident = findResidentForNutrition(plan.residentName);
+    final residentName = resident?.name ?? plan.residentName.trim();
+    final planToSave = _mealPlanWithResidentName(plan, residentName);
+    final idx = mealPlans.indexWhere((p) => p.residentName == residentName);
+    final id = mealPlanIdsByResidentName[residentName];
     if (id == null || id.isEmpty) {
-      await addMealPlan(plan);
+      await addMealPlan(planToSave);
       return;
     }
     final synced = await _runBackendMutation(() {
       return BackendMutationService.instance.updateMealPlan(
         id: id,
-        plan: plan,
+        plan: planToSave,
       );
     });
     if (!synced) return;
     if (idx != -1) {
-      mealPlans[idx] = plan;
+      mealPlans[idx] = planToSave;
     } else {
-      mealPlans.add(plan);
+      mealPlans.add(planToSave);
     }
     notifyListeners();
     unawaited(syncBackendData());
+  }
+
+  MealPlan _mealPlanWithResidentName(MealPlan plan, String residentName) {
+    return MealPlan(
+      residentName: residentName,
+      breakfast: plan.breakfast,
+      lunch: plan.lunch,
+      dinner: plan.dinner,
+      snacks: plan.snacks,
+      specialInstructions: plan.specialInstructions,
+      isAiGenerated: plan.isAiGenerated,
+      aiRationale: plan.aiRationale,
+    );
   }
 
   // بدء عملية التدخل الاجتماعي وتغيير حالة الشكوى
@@ -5286,6 +6218,9 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   void sendEncouragementMessage(String messageType, {String? text}) {
+    final familySenderName = (currentAccount?.name.trim().isNotEmpty ?? false)
+        ? currentAccount!.name.trim()
+        : 'العائلة';
     String title =
         messageType == 'voice' ? 'رسالة صوتية جديدة 🎤' : 'رسالة من العائلة ✉️';
     String body = messageType == 'voice'
@@ -5303,7 +6238,9 @@ class AppRiverpod extends ChangeNotifier {
     final newItem = MemoryItem(
       id: 'mem_custom_${DateTime.now().millisecondsSinceEpoch}',
       category: 'أسرة',
-      title: title,
+      title: messageType == 'voice'
+          ? 'رسالة صوتية من $familySenderName'
+          : 'رسالة من $familySenderName',
       date: 'اليوم',
       type: messageType == 'voice' ? 'voice' : 'text',
       assetPath: '',
@@ -5353,6 +6290,11 @@ class AppRiverpod extends ChangeNotifier {
 
     memoriesList.insert(0, newItem);
     notifyListeners();
+  }
+
+  void sendFamilyMedicationReminder(Medication medication) {
+    _familyRemindedMedicationKeys.add(_familyMedicationReminderKey(medication));
+    sendMedicationReminder(medication.name);
   }
 
   Future<void> toggleMedicationTaken(String id) async {
@@ -5469,16 +6411,40 @@ class AppRiverpod extends ChangeNotifier {
   }
 
   // Smart Diet Planner
-  Future<MealPlan> generateAndSaveMealPlan(String residentName) async {
-    final info = getMedicalInfo(residentName);
+  Future<MealPlan> generateAndSaveMealPlan(String residentLookup) async {
+    final resident = findResidentForNutrition(residentLookup);
+    if (resident == null) {
+      backendSyncError =
+          'لم يتم العثور على مقيم بهذا الاسم أو رقم الغرفة أو الكود';
+      notifyListeners();
+      throw ApiException(404, backendSyncError!);
+    }
+
+    final info = getNutritionMedicalInfo(resident);
     final plan = await AiService.instance.generateSmartDiet(info);
-    final idx = mealPlans.indexWhere((m) => m.residentName == residentName);
+
+    final idx = mealPlans.indexWhere((m) => m.residentName == resident.name);
     if (idx != -1) {
       mealPlans[idx] = plan;
     } else {
       mealPlans.add(plan);
     }
     notifyListeners();
+
+    final existingId = mealPlanIdsByResidentName[resident.name];
+    final synced = await _runBackendMutation(() {
+      if (existingId != null && existingId.isNotEmpty) {
+        return BackendMutationService.instance.updateMealPlan(
+          id: existingId,
+          plan: plan,
+        );
+      }
+      return BackendMutationService.instance.createMealPlan(
+        residentId: resident.id,
+        plan: plan,
+      );
+    });
+    if (synced) unawaited(syncBackendData());
     return plan;
   }
 

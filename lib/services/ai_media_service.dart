@@ -21,14 +21,46 @@ class AiMediaUpload {
   });
 
   factory AiMediaUpload.fromJson(Map<String, dynamic> json) {
+    final nested = json['media'] is Map
+        ? Map<String, dynamic>.from(json['media'] as Map)
+        : const <String, dynamic>{};
+
+    Object? pick(List<String> keys) {
+      for (final key in keys) {
+        final value = json[key] ?? nested[key];
+        if (value != null && value.toString().trim().isNotEmpty) return value;
+      }
+      return null;
+    }
+
     return AiMediaUpload(
-      id: (json['id'] ?? '').toString(),
-      fileName: (json['fileName'] ?? json['file_name'] ?? '').toString(),
-      contentType:
-          (json['contentType'] ?? json['content_type'] ?? '').toString(),
-      status: (json['status'] ?? '').toString(),
-      mediaUrl: json['mediaUrl']?.toString(),
-      uploadUrl: json['uploadUrl']?.toString(),
+      id: (pick(['id']) ?? '').toString(),
+      fileName: (pick(['fileName', 'file_name']) ?? '').toString(),
+      contentType: (pick(['contentType', 'content_type']) ?? '').toString(),
+      status: (pick(['status']) ?? '').toString(),
+      mediaUrl: pick([
+        'mediaUrl',
+        'media_url',
+        'downloadUrl',
+        'download_url',
+        'fileUrl',
+        'file_url',
+        'publicUrl',
+        'public_url',
+        'imageUrl',
+        'image_url',
+        's3Url',
+        's3_url',
+        'objectUrl',
+        'object_url',
+        'url',
+      ])?.toString(),
+      uploadUrl: pick([
+        'uploadUrl',
+        'upload_url',
+        'presignedUrl',
+        'presigned_url',
+      ])?.toString(),
     );
   }
 }
@@ -72,6 +104,8 @@ class AiMediaService {
     final lower = fileName.toLowerCase();
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
     if (lower.endsWith('.pdf')) return 'application/pdf';
     if (lower.endsWith('.doc')) return 'application/msword';
     if (lower.endsWith('.docx')) {

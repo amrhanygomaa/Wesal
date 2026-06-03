@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lottie/lottie.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart' as file_picker_lib;
 import '../../config/api_config.dart';
@@ -18,6 +17,8 @@ import 'resident_id_screen.dart';
 import 'family_bridge_screen.dart';
 import 'family_activities_screen.dart';
 import '../../widgets/taptaba_scaffold.dart';
+import '../../widgets/app_popup_notification.dart';
+import '../../widgets/authenticated_network_image.dart';
 import '../chat/family_resident_chat_screen.dart';
 import '../elderly/widgets/video_call_overlay.dart';
 
@@ -27,6 +28,22 @@ class FamilyDashboardScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<FamilyDashboardScreen> createState() =>
       _FamilyDashboardScreenState();
+}
+
+class _FamilyMedicationStatus {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color backgroundColor;
+  final Color borderColor;
+
+  const _FamilyMedicationStatus({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
 }
 
 class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
@@ -41,6 +58,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
   late AnimationController _floatController;
   late List<Animation<double>> _fadeAnimations;
   Timer? _callPollTimer;
+  Timer? _medicationVisibilityTimer;
 
   @override
   void initState() {
@@ -73,12 +91,17 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
       _callPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
         if (mounted) ref.read(appRiverpod).refreshActiveVideoCalls();
       });
+      _medicationVisibilityTimer =
+          Timer.periodic(const Duration(seconds: 30), (_) {
+        if (mounted && _selectedIndex == 0) setState(() {});
+      });
     });
   }
 
   @override
   void dispose() {
     _callPollTimer?.cancel();
+    _medicationVisibilityTimer?.cancel();
     _fadeController.dispose();
     _pulseController.dispose();
     _rotationController.dispose();
@@ -89,7 +112,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
   @override
   Widget build(BuildContext context) {
     final provider = ref.watch(appRiverpod);
-    final showHero = _selectedIndex != 2 && _selectedIndex != 3;
+    final showHero = _selectedIndex == 0;
 
     return TaptabaScaffold(
       title: 'ونس',
@@ -568,6 +591,10 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
 
   // --- VIEWS ---
 
+  String _residentPresenceLabel(SpecialistResidentFile? resident) {
+    return 'حالة المقيم ${resident?.isOnline == true ? 'متصل' : 'غير متصل'}';
+  }
+
   Widget _buildChatHeaderButton(AppRiverpod provider, String residentId,
       String residentName, BuildContext context) {
     return PopupMenuButton<String>(
@@ -626,7 +653,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
             builder: (_) => FamilyResidentChatScreen(
               otherUserId: selectedResidentId,
               otherUserName: selectedResident.name,
-              otherUserRole: 'المقيم',
+              otherUserRole: _residentPresenceLabel(selectedResident),
               residentId: selectedResidentId,
             ),
           ),
@@ -638,6 +665,8 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
   // --- VIEWS ---
 
   Widget _buildHomeView(AppRiverpod provider) {
+    final medicationReminder = provider.familyMedicationReminder;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       physics: const BouncingScrollPhysics(),
@@ -654,17 +683,16 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
           const SizedBox(height: 24),
           _buildFamilyMessageCard(provider, context),
           const SizedBox(height: 24),
-          _buildChatCard(provider).animate().fadeIn(duration: 350.ms).slideY(
-              begin: 0.06, end: 0, duration: 350.ms, curve: Curves.easeOut),
-          const SizedBox(height: 24),
           _buildGamificationCard(provider, context),
           const SizedBox(height: 24),
           _buildFamilyActivitiesCard(provider, context),
           const SizedBox(height: 24),
           _buildMemoryWall(provider),
           const SizedBox(height: 24),
-          _buildNextmedCard(provider),
-          const SizedBox(height: 20),
+          if (medicationReminder != null) ...[
+            _buildNextmedCard(provider, medicationReminder),
+            const SizedBox(height: 20),
+          ],
           _buildUpcomingVisit(provider),
           const SizedBox(height: 24),
           _buildReviewsCard(provider),
@@ -777,219 +805,6 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChatCard(AppRiverpod provider) {
-    final residentId =
-        provider.backendResidentId ?? provider.currentAccount?.linkedResidentId;
-    final canStartResidentChat = residentId != null && residentId.isNotEmpty;
-    final residentName = provider.residentFiles.isNotEmpty
-        ? provider.residentFiles.first.name
-        : 'المقيم';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFfed7aa), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-              color: const Color(0xFFea580c).withValues(alpha: 0.08),
-              blurRadius: 15,
-              offset: const Offset(0, 5)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: const BoxDecoration(
-                      color: Color(0xFFfff7ed), shape: BoxShape.circle),
-                  child: const Icon(Icons.chat_bubble_outline_rounded,
-                      color: Color(0xFFea580c), size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text('محادثات مع المقيم',
-                      style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1e293b))),
-                ),
-                if (provider.isLoadingInbox)
-                  Shimmer.fromColors(
-                    baseColor: const Color(0xFFfed7aa),
-                    highlightColor: const Color(0xFFfff7ed),
-                    child: Container(
-                        width: 18,
-                        height: 18,
-                        decoration: const BoxDecoration(
-                            color: Color(0xFFfed7aa), shape: BoxShape.circle)),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: canStartResidentChat
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => FamilyResidentChatScreen(
-                            otherUserId: residentId,
-                            otherUserName: residentName,
-                            otherUserRole: 'المقيم',
-                            residentId: residentId,
-                          ),
-                        ),
-                      ).then((_) => provider.loadMessageInbox())
-                  : null,
-              child: Ink(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: canStartResidentChat
-                      ? const LinearGradient(
-                          colors: [Color(0xFFea580c), Color(0xFFf97316)])
-                      : null,
-                  color: canStartResidentChat ? null : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_back_ios_new_rounded,
-                        color: canStartResidentChat
-                            ? Colors.white
-                            : const Color(0xFF94a3b8),
-                        size: 18),
-                    const Spacer(),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'محادثة مباشرة مع $residentName',
-                          style: TextStyle(
-                              color: canStartResidentChat
-                                  ? Colors.white
-                                  : const Color(0xFF64748b),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14),
-                        ),
-                        Text(
-                          canStartResidentChat
-                              ? 'متاحة في أي وقت بدون حجز موعد'
-                              : 'جاري تجهيز ربط حساب المقيم',
-                          style: TextStyle(
-                              color: canStartResidentChat
-                                  ? Colors.white70
-                                  : const Color(0xFF94a3b8),
-                              fontSize: 11),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.chat_bubble_rounded,
-                        color: canStartResidentChat
-                            ? Colors.white
-                            : const Color(0xFF94a3b8),
-                        size: 24),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (provider.messageInbox.isEmpty && !provider.isLoadingInbox)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: Column(
-                children: [
-                  Text(
-                    'لا توجد محادثات سابقة بعد.\nيمكنك بدء محادثة مباشرة من الزر بالأعلى.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontSize: 13, color: Color(0xFF94a3b8), height: 1.6),
-                  ),
-                ],
-              ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              itemCount: provider.messageInbox.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) {
-                final thread = provider.messageInbox[i];
-                final unread = thread.unreadCount > 0;
-                return ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFfff7ed),
-                    child: Text(
-                      thread.otherUserName.isNotEmpty
-                          ? thread.otherUserName[0]
-                          : '?',
-                      style: const TextStyle(
-                          color: Color(0xFFea580c),
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  title: Text(
-                    thread.otherUserName,
-                    style: TextStyle(
-                        fontWeight: unread ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 14),
-                  ),
-                  subtitle: Text(
-                    thread.lastMessage.body,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: unread
-                            ? const Color(0xFF1e293b)
-                            : const Color(0xFF94a3b8)),
-                  ),
-                  trailing: unread
-                      ? Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                              color: const Color(0xFFea580c),
-                              borderRadius: BorderRadius.circular(12)),
-                          child: Text('${thread.unreadCount}',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold)),
-                        )
-                      : null,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FamilyResidentChatScreen(
-                        otherUserId: thread.otherUserId,
-                        otherUserName: thread.otherUserName,
-                        otherUserRole: thread.otherUserRole,
-                        residentId: residentId,
-                      ),
-                    ),
-                  ).then((_) => provider.loadMessageInbox()),
-                );
-              },
-            ),
         ],
       ),
     );
@@ -1444,7 +1259,10 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                         child: ClipRRect(
                           borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(24)),
-                          child: _buildMemoryMomentImage(m.imageUrl),
+                          child: _buildMemoryMomentImage(
+                            m.imageUrl,
+                            fallbackPath: m.fallbackPath,
+                          ),
                         ),
                       ),
                       Expanded(
@@ -1454,11 +1272,15 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text(m.activityTitle,
-                                  style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1e293b))),
+                              if (_shouldShowMemoryMomentTitle(
+                                  m.activityTitle)) ...[
+                                Text(m.activityTitle,
+                                    style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF1e293b))),
+                                const SizedBox(height: 2),
+                              ],
                               Text(m.date,
                                   style: const TextStyle(
                                       fontSize: 8, color: Color(0xFF94a3b8))),
@@ -1510,17 +1332,23 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
     );
   }
 
-  Widget _buildMemoryMomentImage(String imageUrl) {
-    final path = imageUrl.trim();
-    if (path.isEmpty) return _buildMemoryImageFallback();
+  Widget _buildMemoryMomentImage(String imageUrl, {String? fallbackPath}) {
+    final paths = _memoryImageCandidates(imageUrl, fallbackPath);
+    if (paths.isEmpty) return _buildMemoryImageFallback();
+    return _buildMemoryImageFromCandidates(paths);
+  }
 
+  Widget _buildMemoryImageFromCandidates(List<String> paths, {int index = 0}) {
+    if (index >= paths.length) return _buildMemoryImageFallback();
+    final path = paths[index];
+    final fallback = _buildMemoryImageFromCandidates(paths, index: index + 1);
     if (!kIsWeb) {
       final file = File(path);
       if (file.existsSync()) {
         return Image.file(
           file,
           fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => _buildMemoryImageFallback(),
+          errorBuilder: (_, __, ___) => fallback,
         );
       }
     }
@@ -1529,13 +1357,30 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
     if (resolvedUrl.startsWith('http') ||
         resolvedUrl.startsWith('blob') ||
         resolvedUrl.startsWith('data:image')) {
-      return Image.network(
-        resolvedUrl,
+      return AuthenticatedNetworkImage(
+        url: resolvedUrl,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _buildMemoryImageFallback(),
+        errorBuilder: (_, __, ___) => fallback,
       );
     }
-    return _buildMemoryImageFallback();
+    return fallback;
+  }
+
+  List<String> _memoryImageCandidates(String imageUrl, String? fallbackPath) {
+    final seen = <String>{};
+    return [imageUrl, fallbackPath]
+        .map((value) => value?.trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .where((value) => seen.add(value))
+        .toList();
+  }
+
+  bool _shouldShowMemoryMomentTitle(String title) {
+    final clean = title.trim();
+    return clean.isNotEmpty &&
+        clean != 'صورة عائلية جديدة' &&
+        clean != 'لحظة عائلية' &&
+        clean != 'صورة جديدة';
   }
 
   String _resolveMemoryImageUrl(String raw) {
@@ -2193,7 +2038,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
     return Icon(icon, color: color, size: 18);
   }
 
-  Widget _buildNextmedCard(AppRiverpod provider) {
+  Widget _buildNextmedCard(AppRiverpod provider, Medication medication) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -2211,16 +2056,13 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                    'الجرعة القادمة: ${ref.watch(appRiverpod).nextMedication?.name ?? "مكتملة ✅"}',
+                Text('الجرعة القادمة: ${medication.name}',
                     style: const TextStyle(
                         color: Color(0xFF1e3a8a),
                         fontSize: 12,
                         fontWeight: FontWeight.bold)),
                 Text(
-                    ref.watch(appRiverpod).nextMedication != null
-                        ? 'موعد ${ref.watch(appRiverpod).nextMedication!.timeOfDay} — ${ref.watch(appRiverpod).nextMedication!.timeDescription}'
-                        : 'جميع الأدوية تم أخذها بنجاح',
+                    'موعد ${medication.timeOfDay} — ${medication.timeDescription}',
                     style: const TextStyle(
                         color: Color(0xFF3b82f6), fontSize: 10)),
               ],
@@ -2229,9 +2071,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
           const SizedBox(width: 12),
           GestureDetector(
             onTap: () async {
-              final medName =
-                  ref.read(appRiverpod).nextMedication?.name ?? 'الدواء';
-              ref.read(appRiverpod).sendMedicationReminder(medName);
+              ref.read(appRiverpod).sendFamilyMedicationReminder(medication);
 
               setState(() {
                 _showMedicationDoneAnimation = true;
@@ -2320,26 +2160,91 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
             ],
           ),
           const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const VisitBookingScreen())),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFfff7ed),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFfed7aa))),
-              child: const Center(
-                  child: Text('تعديل الموعد',
-                      style: TextStyle(
-                          color: Color(0xFFea580c),
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold))),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const VisitBookingScreen())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFfff7ed),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFfed7aa))),
+                    child: const Center(
+                        child: Text('تعديل الموعد',
+                            style: TextStyle(
+                                color: Color(0xFFea580c),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold))),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _confirmCancelVisit(visit),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFb91c1c),
+                    side: const BorderSide(color: Color(0xFFfecaca)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text('إلغاء اللقاء',
+                      style:
+                          TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _confirmCancelVisit(FamilyVisit visit) async {
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إلغاء اللقاء', textAlign: TextAlign.right),
+        content: Text(
+          'هل تريد إلغاء ${visit.type == 'video' ? 'مكالمة الفيديو' : 'لقاء مودة'} يوم ${visit.date} الساعة ${visit.time}؟',
+          textAlign: TextAlign.right,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('رجوع'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFdc2626),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('إلغاء اللقاء'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel != true || !mounted) return;
+    final provider = ref.read(appRiverpod);
+    final ok = await provider.cancelFamilyVisit(visit.id);
+    if (!mounted) return;
+    showAppPopupNotification(
+      context,
+      message: ok
+          ? 'تم إلغاء اللقاء ونقله إلى السجل السابق'
+          : provider.backendSyncError ?? 'تعذر إلغاء اللقاء',
+      type: ok
+          ? AppPopupNotificationType.success
+          : AppPopupNotificationType.error,
+      duration: const Duration(seconds: 3),
     );
   }
 
@@ -2378,15 +2283,14 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
   }
 
   Widget _buildCareLogCard(Medication m) {
+    final status = _familyMedicationStatus(m);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-            color:
-                m.isTaken ? const Color(0xFFdcfce7) : const Color(0xFFf1f5f9)),
+        border: Border.all(color: status.borderColor),
       ),
       child: Row(
         children: [
@@ -2412,23 +2316,81 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
           ),
           const SizedBox(width: 12),
           Container(
-            width: 44,
+            width: 46,
             height: 44,
             decoration: BoxDecoration(
-                color: const Color(0xFFfff7ed),
+                color: status.backgroundColor,
                 borderRadius: BorderRadius.circular(10)),
-            child: const Center(
-                child:
-                    Icon(Icons.medication, color: Color(0xFFea580c), size: 22)),
+            child:
+                Center(child: Icon(status.icon, color: status.color, size: 22)),
           ),
           const SizedBox(width: 12),
-          if (m.isTaken)
-            const Icon(Icons.check_circle, color: Color(0xFF10b981), size: 26)
-          else
-            const Icon(Icons.pending_actions_rounded,
-                color: Color(0xFFf59e0b), size: 26),
+          Container(
+            constraints: const BoxConstraints(minWidth: 82),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: status.backgroundColor,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: status.borderColor),
+            ),
+            child: Text(
+              status.label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: status.color,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  _FamilyMedicationStatus _familyMedicationStatus(Medication m) {
+    if (m.isTaken && m.isElderlyConfirmed) {
+      return const _FamilyMedicationStatus(
+        label: 'تم الأخذ',
+        icon: Icons.check_circle_rounded,
+        color: Color(0xFF059669),
+        backgroundColor: Color(0xFFecfdf5),
+        borderColor: Color(0xFFbbf7d0),
+      );
+    }
+    if (m.isElderlyConfirmed && !m.isTaken) {
+      return const _FamilyMedicationStatus(
+        label: 'بانتظار الممرض',
+        icon: Icons.hourglass_top_rounded,
+        color: Color(0xFF0284c7),
+        backgroundColor: Color(0xFFe0f2fe),
+        borderColor: Color(0xFFbae6fd),
+      );
+    }
+    if (m.isSkipped) {
+      return const _FamilyMedicationStatus(
+        label: 'تم التجاوز',
+        icon: Icons.block_rounded,
+        color: Color(0xFF64748b),
+        backgroundColor: Color(0xFFf8fafc),
+        borderColor: Color(0xFFe2e8f0),
+      );
+    }
+    if (m.isMissed) {
+      return const _FamilyMedicationStatus(
+        label: 'فاتت الجرعة',
+        icon: Icons.error_rounded,
+        color: Color(0xFFdc2626),
+        backgroundColor: Color(0xFFfef2f2),
+        borderColor: Color(0xFFfecaca),
+      );
+    }
+    return const _FamilyMedicationStatus(
+      label: 'قيد المتابعة',
+      icon: Icons.pending_actions_rounded,
+      color: Color(0xFFea580c),
+      backgroundColor: Color(0xFFfff7ed),
+      borderColor: Color(0xFFfed7aa),
     );
   }
 
@@ -2669,6 +2631,7 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
 
   Widget _buildVisitCard(FamilyVisit v) {
     bool isUpcoming = v.status == 'upcoming';
+    bool canManage = v.status == 'upcoming' || v.status == 'pending';
     return GestureDetector(
       onTap: () => _showVisitDetailsModal(v),
       child: Container(
@@ -2737,11 +2700,11 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                 ),
               ],
             ),
-            if (isUpcoming) ...[
+            if (canManage) ...[
               const SizedBox(height: 20),
               const Divider(color: Color(0xFFf1f5f9)),
               const SizedBox(height: 10),
-              if (v.type == 'video' && v.zoomLink != null) ...[
+              if (isUpcoming && v.type == 'video' && v.zoomLink != null) ...[
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -2786,9 +2749,9 @@ class _FamilyDashboardScreenState extends ConsumerState<FamilyDashboardScreen>
                           side: const BorderSide(color: Color(0xFFcbd5e1)),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12))),
-                      onPressed: () {},
-                      child: const Text('إلغاء',
-                          style: TextStyle(color: Color(0xFF64748b))),
+                      onPressed: () => _confirmCancelVisit(v),
+                      child: const Text('إلغاء اللقاء',
+                          style: TextStyle(color: Color(0xFFb91c1c))),
                     ),
                   ),
                 ],

@@ -1,5 +1,10 @@
 import 'api_client.dart';
 
+String? _optionalString(Object? value) {
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? null : text;
+}
+
 class BackendUserSummary {
   final String id;
   final String name;
@@ -58,8 +63,22 @@ class BackendRoleMessage {
       senderId: (j['senderId'] ?? j['sender_id'] ?? '').toString(),
       recipientId: (j['recipientId'] ?? j['recipient_id'] ?? '').toString(),
       body: (j['body'] ?? j['text'] ?? '').toString(),
-      mediaUrl: (j['mediaUrl'] ?? j['media_url'])?.toString(),
-      mediaType: (j['mediaType'] ?? j['media_type'])?.toString(),
+      mediaUrl: _optionalString(j['mediaUrl'] ??
+          j['media_url'] ??
+          j['attachmentUrl'] ??
+          j['attachment_url'] ??
+          j['fileUrl'] ??
+          j['file_url'] ??
+          j['downloadUrl'] ??
+          j['download_url'] ??
+          j['presignedUrl'] ??
+          j['presigned_url']),
+      mediaType: _optionalString(j['mediaType'] ??
+          j['media_type'] ??
+          j['contentType'] ??
+          j['content_type'] ??
+          j['mimeType'] ??
+          j['mime_type']),
       deliveredAt: (j['deliveredAt'] ?? j['delivered_at'])?.toString(),
       readAt: (j['readAt'] ?? j['read_at'])?.toString(),
       createdAt: (j['createdAt'] ?? j['created_at'] ?? '').toString(),
@@ -155,10 +174,14 @@ class MessagesService {
     String? mediaUrl,
     String? mediaType,
   }) async {
+    final cleanMediaUrl = _optionalString(mediaUrl);
+    final cleanMediaType = _optionalString(mediaType);
     final res = await ApiClient.instance.post('/messages', body: {
       'recipientId': recipientId,
       'body': body,
       if (residentId != null && residentId.isNotEmpty) 'residentId': residentId,
+      if (cleanMediaUrl != null) 'mediaUrl': cleanMediaUrl,
+      if (cleanMediaUrl != null) 'mediaType': cleanMediaType ?? 'file',
     });
     return BackendRoleMessage.fromJson(Map<String, dynamic>.from(res as Map));
   }

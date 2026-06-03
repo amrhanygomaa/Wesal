@@ -563,8 +563,10 @@ class _FamilyActivitiesScreenState extends ConsumerState<FamilyActivitiesScreen>
               height: 48,
               child: ElevatedButton(
                 onPressed: () {
-                  provider.toggleFamilyParticipation(act.id);
-                  final nowJoined = provider.isFamilyParticipating(act.id);
+                  final nowJoined = provider.toggleFamilyActivityAttendance(
+                    act,
+                    residentName: residentName,
+                  );
                   if (nowJoined) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

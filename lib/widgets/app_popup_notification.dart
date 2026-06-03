@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../utils/user_feedback_message.dart';
+
 enum AppPopupNotificationType { success, error, warning, info }
 
 OverlayEntry? _activePopupNotification;
@@ -14,6 +16,9 @@ void showAppPopupNotification(
 }) {
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
+  final displayMessage = type == AppPopupNotificationType.error
+      ? friendlyFeedbackMessage(message)
+      : message;
 
   try {
     _activePopupNotification?.remove();
@@ -25,7 +30,7 @@ void showAppPopupNotification(
   late final OverlayEntry entry;
   entry = OverlayEntry(
     builder: (_) => _AppPopupNotification(
-      message: message,
+      message: displayMessage,
       type: type,
       duration: duration,
       onDismissed: () {

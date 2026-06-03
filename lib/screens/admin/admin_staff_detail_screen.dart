@@ -1,9 +1,25 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../config/api_config.dart';
 import '../../providers/app_riverpod.dart';
 import '../../models/app_models.dart';
 import '../../widgets/taptaba_scaffold.dart';
+
+ImageProvider<Object>? _staffImageProvider(String? imageUrl) {
+  final value = imageUrl?.trim() ?? '';
+  if (value.isEmpty) return null;
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    return NetworkImage('${ApiConfig.baseUrl}$value');
+  }
+  final uri = Uri.tryParse(value);
+  if (uri != null &&
+      uri.hasScheme &&
+      (uri.scheme == 'http' || uri.scheme == 'https')) {
+    return NetworkImage(value);
+  }
+  return FileImage(File(value));
+}
 
 class AdminStaffDetailScreen extends ConsumerStatefulWidget {
   final String staffId;
@@ -259,15 +275,13 @@ class _AdminStaffDetailScreenState
                       );
 
                       final String? imageUrl = displayedStaff.imageUrl;
+                      final imageProvider = _staffImageProvider(imageUrl);
 
                       return CircleAvatar(
                         radius: 50,
                         backgroundColor: Colors.white12,
-                        backgroundImage:
-                            (imageUrl != null && imageUrl.isNotEmpty)
-                                ? FileImage(File(imageUrl))
-                                : null,
-                        child: (imageUrl == null || imageUrl.isEmpty)
+                        backgroundImage: imageProvider,
+                        child: imageProvider == null
                             ? const Icon(Icons.person,
                                 color: Colors.white, size: 60)
                             : null,
@@ -280,8 +294,24 @@ class _AdminStaffDetailScreenState
                 bottom: 0,
                 right: 0,
                 child: GestureDetector(
-                  onTap: () {
-                    ref.read(appRiverpod).pickAndSetStaffImage(widget.staffId);
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final saved = await ref
+                        .read(appRiverpod)
+                        .pickAndSetStaffImage(widget.staffId);
+                    if (!mounted || saved == null) return;
+                    final error = ref.read(appRiverpod).backendSyncError;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(saved
+                            ? 'تم حفظ صورة الموظف بنجاح'
+                            : 'تم اختيار الصورة محلياً، لكن فشل حفظها على السيرفر: ${error ?? 'حاول مرة أخرى'}'),
+                        backgroundColor: saved
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFDC2626),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.all(8),
@@ -708,11 +738,12 @@ class _AdminStaffDetailScreenState
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context); // Close dialog
-              await ref.read(appRiverpod).deleteStaff(staff.id);
+              final deleted = await ref.read(appRiverpod).deleteStaff(staff.id);
               if (!parentContext.mounted) return;
-              if (ref.read(appRiverpod).backendSyncError != null) {
+              if (!deleted || ref.read(appRiverpod).backendSyncError != null) {
                 ScaffoldMessenger.of(parentContext).showSnackBar(SnackBar(
-                  content: Text(ref.read(appRiverpod).backendSyncError!),
+                  content: Text(ref.read(appRiverpod).backendSyncError ??
+                      'تعذر حذف ملف الموظف، حاول مرة أخرى'),
                   backgroundColor: const Color(0xFFef4444),
                 ));
                 return;

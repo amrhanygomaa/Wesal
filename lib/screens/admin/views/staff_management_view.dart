@@ -1,8 +1,24 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../config/api_config.dart';
 import '../../../providers/app_riverpod.dart';
 import '../admin_staff_detail_screen.dart';
+
+ImageProvider<Object>? _staffImageProvider(String? imageUrl) {
+  final value = imageUrl?.trim() ?? '';
+  if (value.isEmpty) return null;
+  if (value.startsWith('/') && !value.startsWith('//')) {
+    return NetworkImage('${ApiConfig.baseUrl}$value');
+  }
+  final uri = Uri.tryParse(value);
+  if (uri != null &&
+      uri.hasScheme &&
+      (uri.scheme == 'http' || uri.scheme == 'https')) {
+    return NetworkImage(value);
+  }
+  return FileImage(File(value));
+}
 
 class StaffManagementView extends StatelessWidget {
   final List<Animation<double>> fadeAnimations;
@@ -329,22 +345,35 @@ class StaffManagementView extends StatelessWidget {
                     Hero(
                       tag: id,
                       child: GestureDetector(
-                        onTap: () {
-                          ref.read(appRiverpod).pickAndSetStaffImage(id);
+                        onTap: () async {
+                          final saved = await ref
+                              .read(appRiverpod)
+                              .pickAndSetStaffImage(id);
+                          if (!context.mounted || saved == null) return;
+                          final error = ref.read(appRiverpod).backendSyncError;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(saved
+                                  ? 'تم حفظ صورة الموظف بنجاح'
+                                  : 'تم اختيار الصورة محلياً، لكن فشل حفظها على السيرفر: ${error ?? 'حاول مرة أخرى'}'),
+                              backgroundColor: saved
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFDC2626),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
                         },
                         child: Stack(
                           children: [
                             Builder(
                               builder: (context) {
                                 final String? img = imageUrl;
+                                final imageProvider = _staffImageProvider(img);
                                 return CircleAvatar(
                                   backgroundColor: const Color(0xFFf0f9ff),
                                   radius: 22,
-                                  backgroundImage:
-                                      (img != null && img.isNotEmpty)
-                                          ? FileImage(File(img))
-                                          : null,
-                                  child: (img == null || img.isEmpty)
+                                  backgroundImage: imageProvider,
+                                  child: imageProvider == null
                                       ? Text(
                                           name.isNotEmpty
                                               ? name.substring(0, 1)

@@ -107,6 +107,7 @@ class _AssessmentDetailedScreenState
       setState(() {
         _questions = widget.initialQuestions!
             .where((q) => q.text.trim().isNotEmpty)
+            .take(AppRiverpod.maxAssessmentQuestionsPerCategory)
             .toList();
         _questionIndex = 0;
         _isLoadingQuestions = false;
@@ -118,11 +119,11 @@ class _AssessmentDetailedScreenState
     final tool = _resolvedTool(provider);
     var rawQuestions = tool == null
         ? <Map<String, dynamic>>[]
-        : provider.getQuestionsForTool(tool.id);
+        : provider.getQuestionsForAssessmentTool(tool);
 
     if (rawQuestions.isEmpty && tool != null && tool.id.trim().isNotEmpty) {
       await provider.loadQuestionsForTool(tool.id);
-      rawQuestions = provider.getQuestionsForTool(tool.id);
+      rawQuestions = provider.getQuestionsForAssessmentTool(tool);
     }
 
     var loaded = rawQuestions
@@ -132,10 +133,13 @@ class _AssessmentDetailedScreenState
           return _questionFromMap(entry.value, entry.key);
         })
         .where((q) => q.text.trim().isNotEmpty)
+        .take(AppRiverpod.maxAssessmentQuestionsPerCategory)
         .toList();
 
     if (loaded.isEmpty && provider.gdsQuestions.isNotEmpty) {
-      loaded = List<AssessmentQuestion>.from(provider.gdsQuestions);
+      loaded = List<AssessmentQuestion>.from(provider.gdsQuestions)
+          .take(AppRiverpod.maxAssessmentQuestionsPerCategory)
+          .toList();
     }
 
     if (!mounted) return;

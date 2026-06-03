@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/app_riverpod.dart';
@@ -284,109 +286,111 @@ class _OperationsViewState extends ConsumerState<OperationsView>
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                    child: Container(
-                        width: 50,
-                        height: 5,
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(10)))),
-                const SizedBox(height: 24),
-                const Text('إضافة مهمة جديدة لرعاية مسن',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'عنوان المهمة',
-                    hintText: 'مثلاً: تغيير ملابس، رياضة...',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: residentController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المسن',
-                    hintText: 'اسم المقيم كما يظهر من السيرفر',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: timeController,
-                  decoration: const InputDecoration(
-                    labelText: 'الوقت',
-                    hintText: 'مثلاً: ٠٨:٠٠ ص',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text('التصنيف:',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF475569))),
-                const SizedBox(height: 8),
-                Row(
-                  children: ['شخصية', 'ترفيهية', 'فندقية'].map((cat) {
-                    final active = selectedCategory == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: ChoiceChip(
-                        label: Text(cat),
-                        selected: active,
-                        onSelected: (val) {
-                          if (val) {
-                            setModalState(() => selectedCategory = cat);
-                          }
-                        },
-                        selectedColor: const Color(0xFFE0F2FE),
-                        labelStyle: TextStyle(
-                            color: active
-                                ? const Color(0xFF0369A1)
-                                : const Color(0xFF475569),
-                            fontWeight: FontWeight.bold),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (titleController.text.isNotEmpty &&
-                          residentController.text.isNotEmpty) {
-                        provider.addCareTask(CareTask(
-                          id: 'c_custom_${DateTime.now().millisecondsSinceEpoch}',
-                          title: titleController.text,
-                          residentName: residentController.text,
-                          time: timeController.text.isNotEmpty
-                              ? timeController.text
-                              : '٠٨:٠٠ ص',
-                          category: selectedCategory,
-                        ));
-                        Navigator.pop(context);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0369A1),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                      child: Container(
+                          width: 50,
+                          height: 5,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10)))),
+                  const SizedBox(height: 24),
+                  const Text('إضافة مهمة جديدة لرعاية مسن',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'عنوان المهمة',
+                      hintText: 'مثلاً: تغيير ملابس، رياضة...',
                     ),
-                    child: const Text('حفظ المهمة',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: residentController,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم المسن',
+                      hintText: 'اسم المقيم كما يظهر من السيرفر',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: timeController,
+                    decoration: const InputDecoration(
+                      labelText: 'الوقت',
+                      hintText: 'مثلاً: ٠٨:٠٠ ص',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('التصنيف:',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569))),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: ['شخصية', 'ترفيهية', 'فندقية'].map((cat) {
+                      final active = selectedCategory == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: ChoiceChip(
+                          label: Text(cat),
+                          selected: active,
+                          onSelected: (val) {
+                            if (val) {
+                              setModalState(() => selectedCategory = cat);
+                            }
+                          },
+                          selectedColor: const Color(0xFFE0F2FE),
+                          labelStyle: TextStyle(
+                              color: active
+                                  ? const Color(0xFF0369A1)
+                                  : const Color(0xFF475569),
+                              fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (titleController.text.isNotEmpty &&
+                            residentController.text.isNotEmpty) {
+                          provider.addCareTask(CareTask(
+                            id: 'c_custom_${DateTime.now().millisecondsSinceEpoch}',
+                            title: titleController.text,
+                            residentName: residentController.text,
+                            time: timeController.text.isNotEmpty
+                                ? timeController.text
+                                : '٠٨:٠٠ ص',
+                            category: selectedCategory,
+                          ));
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0369A1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: const Text('حفظ المهمة',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         });
@@ -751,129 +755,131 @@ class _OperationsViewState extends ConsumerState<OperationsView>
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                    child: Container(
-                        width: 50,
-                        height: 5,
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(10)))),
-                const SizedBox(height: 24),
-                const Text('إضافة مادة جديدة للمخزون',
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A))),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المادة',
-                    hintText: 'مثلاً: بندول ٥٠٠ مجم، حفاضات...',
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                      child: Container(
+                          width: 50,
+                          height: 5,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10)))),
+                  const SizedBox(height: 24),
+                  const Text('إضافة مادة جديدة للمخزون',
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A))),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم المادة',
+                      hintText: 'مثلاً: بندول ٥٠٠ مجم، حفاضات...',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: stockController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'المخزون الحالي',
-                          hintText: 'مثلاً: ٢٠',
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: stockController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'المخزون الحالي',
+                            hintText: 'مثلاً: ٢٠',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: minController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'الحد الأدنى',
-                          hintText: 'مثلاً: ١٠',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: minController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'الحد الأدنى',
+                            hintText: 'مثلاً: ١٠',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: unitController,
-                  decoration: const InputDecoration(
-                    labelText: 'الوحدة',
-                    hintText: 'مثلاً: شريط، علبة، عبوة...',
+                    ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text('التصنيف:',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF475569))),
-                const SizedBox(height: 8),
-                Row(
-                  children: ['أدوية', 'شخصي', 'مستلزمات'].map((cat) {
-                    final active = selectedCategory == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 8.0),
-                      child: ChoiceChip(
-                        label: Text(cat),
-                        selected: active,
-                        onSelected: (val) {
-                          if (val) {
-                            setModalState(() => selectedCategory = cat);
-                          }
-                        },
-                        selectedColor: const Color(0xFFE0F2FE),
-                        labelStyle: TextStyle(
-                            color: active
-                                ? const Color(0xFF0369A1)
-                                : const Color(0xFF475569),
-                            fontWeight: FontWeight.bold),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: unitController,
+                    decoration: const InputDecoration(
+                      labelText: 'الوحدة',
+                      hintText: 'مثلاً: شريط، علبة، عبوة...',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('التصنيف:',
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569))),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: ['أدوية', 'شخصي', 'مستلزمات'].map((cat) {
+                      final active = selectedCategory == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: ChoiceChip(
+                          label: Text(cat),
+                          selected: active,
+                          onSelected: (val) {
+                            if (val) {
+                              setModalState(() => selectedCategory = cat);
+                            }
+                          },
+                          selectedColor: const Color(0xFFE0F2FE),
+                          labelStyle: TextStyle(
+                              color: active
+                                  ? const Color(0xFF0369A1)
+                                  : const Color(0xFF475569),
+                              fontWeight: FontWeight.bold),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (nameController.text.isNotEmpty &&
+                            stockController.text.isNotEmpty &&
+                            minController.text.isNotEmpty) {
+                          provider.addInventoryItem(InventoryItem(
+                            id: 'i_custom_${DateTime.now().millisecondsSinceEpoch}',
+                            name: nameController.text,
+                            category: selectedCategory,
+                            currentStock: int.parse(stockController.text),
+                            minRequired: int.parse(minController.text),
+                            unit: unitController.text.isNotEmpty
+                                ? unitController.text
+                                : 'قطعة',
+                          ));
+                          Navigator.pop(context);
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0369A1),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      if (nameController.text.isNotEmpty &&
-                          stockController.text.isNotEmpty &&
-                          minController.text.isNotEmpty) {
-                        provider.addInventoryItem(InventoryItem(
-                          id: 'i_custom_${DateTime.now().millisecondsSinceEpoch}',
-                          name: nameController.text,
-                          category: selectedCategory,
-                          currentStock: int.parse(stockController.text),
-                          minRequired: int.parse(minController.text),
-                          unit: unitController.text.isNotEmpty
-                              ? unitController.text
-                              : 'قطعة',
-                        ));
-                        Navigator.pop(context);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0369A1),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
+                      child: const Text('حفظ المادة',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                     ),
-                    child: const Text('حفظ المادة',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         });
@@ -1294,6 +1300,10 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                     _mealRow('وجبة الغداء 🍲', plan.lunch),
                     const Divider(height: 24, color: Color(0xFFF1F5F9)),
                     _mealRow('وجبة العشاء 🥛', plan.dinner),
+                    if (plan.snacks.isNotEmpty) ...[
+                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      _mealRow('وجبة خفيفة 🍎', plan.snacks),
+                    ],
                     if (plan.isAiGenerated) ...[
                       const SizedBox(height: 16),
                       Container(
@@ -1306,15 +1316,23 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.auto_awesome, color: Color(0xFFC026D3), size: 18),
+                            const Icon(Icons.auto_awesome,
+                                color: Color(0xFFC026D3), size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('توصية الذكاء الاصطناعي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF86198F))),
+                                  const Text('توصية الذكاء الاصطناعي',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: Color(0xFF86198F))),
                                   const SizedBox(height: 4),
-                                  Text(plan.aiRationale ?? '', style: const TextStyle(fontSize: 11, color: Color(0xFF701A75))),
+                                  Text(plan.aiRationale ?? '',
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF701A75))),
                                 ],
                               ),
                             ),
@@ -1404,8 +1422,180 @@ class _OperationsViewState extends ConsumerState<OperationsView>
     );
   }
 
+  Widget _buildResidentNutritionSearch({
+    required AppRiverpod provider,
+    required String labelText,
+    required String hintText,
+    required ValueChanged<String> onTextChanged,
+    required ValueChanged<SpecialistResidentFile> onSelected,
+  }) {
+    return Autocomplete<SpecialistResidentFile>(
+      displayStringForOption: (resident) => resident.name,
+      optionsBuilder: (textEditingValue) {
+        return provider.searchResidentsForNutrition(textEditingValue.text);
+      },
+      onSelected: onSelected,
+      fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+        return TextField(
+          controller: textController,
+          focusNode: focusNode,
+          onChanged: onTextChanged,
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            labelText: labelText,
+            hintText: hintText,
+            prefixIcon: const Icon(Icons.search_rounded),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelectedOption, options) {
+        final width = min(MediaQuery.of(context).size.width - 48, 360.0);
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 260),
+              child: SizedBox(
+                width: width,
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  shrinkWrap: true,
+                  itemCount: options.length,
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  itemBuilder: (context, index) {
+                    final resident = options.elementAt(index);
+                    return ListTile(
+                      onTap: () => onSelectedOption(resident),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFFF0F9FF),
+                        child: Text(
+                          resident.initials.isNotEmpty
+                              ? resident.initials
+                              : (resident.name.isNotEmpty
+                                  ? resident.name[0]
+                                  : '؟'),
+                          style: const TextStyle(
+                              color: Color(0xFF0369A1),
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      title: Text(
+                        resident.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        'غرفة ${resident.room} · كود ${_shortResidentCode(resident.id)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNutritionProfilePreview(
+    AppRiverpod provider,
+    SpecialistResidentFile resident,
+  ) {
+    final info = provider.getNutritionMedicalInfo(resident);
+    final restrictions = [
+      if ((resident.dietType ?? '').trim().isNotEmpty)
+        'النظام: ${resident.dietType}',
+      ...info.chronicDiseases,
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.fact_check_rounded,
+                  color: Color(0xFF0369A1), size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${resident.name} · غرفة ${resident.room} · كود ${_shortResidentCode(resident.id)}',
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (restrictions.isEmpty && info.allergies.isEmpty)
+                _nutritionChip('لا توجد قيود مسجلة', const Color(0xFF059669)),
+              ...restrictions
+                  .take(4)
+                  .map((item) => _nutritionChip(item, const Color(0xFF0369A1))),
+              ...info.allergies.take(3).map(
+                    (item) => _nutritionChip(
+                      'حساسية: $item',
+                      const Color(0xFFDC2626),
+                    ),
+                  ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _nutritionChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Text(
+        label,
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  String _shortResidentCode(String id) {
+    final clean = id.trim();
+    if (clean.length <= 8) return clean.isEmpty ? 'غير محدد' : clean;
+    return clean.substring(0, 8);
+  }
+
   void _showGenerateAiDietModal(AppRiverpod provider) {
-    final residentController = TextEditingController();
+    String residentLookup = '';
+    SpecialistResidentFile? selectedResident;
     bool isGenerating = false;
 
     showModalBottomSheet(
@@ -1449,25 +1639,90 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                   ],
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: residentController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المقيم',
-                    hintText: 'أدخل اسم المقيم',
-                  ),
+                _buildResidentNutritionSearch(
+                  provider: provider,
+                  labelText: 'بحث عن المقيم',
+                  hintText: 'ابحث بالاسم، رقم الغرفة، أو كود المقيم',
+                  onTextChanged: (value) {
+                    residentLookup = value;
+                    setModalState(() {
+                      selectedResident =
+                          provider.findResidentForNutrition(value);
+                    });
+                  },
+                  onSelected: (resident) {
+                    residentLookup = resident.name;
+                    setModalState(() => selectedResident = resident);
+                  },
                 ),
+                const SizedBox(height: 12),
+                if (selectedResident != null)
+                  _buildNutritionProfilePreview(provider, selectedResident!)
+                else if (residentLookup.trim().isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFFED7AA)),
+                    ),
+                    child: const Text(
+                      'اختر المقيم من نتائج البحث لضمان حفظ الخطة في ملفه الصحيح.',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                          color: Color(0xFF9A3412),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: isGenerating ? null : () async {
-                      if (residentController.text.isNotEmpty) {
-                        setModalState(() => isGenerating = true);
-                        await provider.generateAndSaveMealPlan(residentController.text);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      }
-                    },
+                    onPressed: isGenerating
+                        ? null
+                        : () async {
+                            final lookup =
+                                selectedResident?.name ?? residentLookup.trim();
+                            if (lookup.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('ابحث واختر المقيم أولاً'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                ),
+                              );
+                              return;
+                            }
+
+                            setModalState(() => isGenerating = true);
+                            try {
+                              await provider.generateAndSaveMealPlan(lookup);
+                              if (!context.mounted) return;
+                              Navigator.pop(context);
+                              final hasSyncWarning =
+                                  provider.backendSyncError != null;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(hasSyncWarning
+                                      ? 'تم توليد الخطة محلياً، لكن تعذر حفظها على السيرفر: ${provider.backendSyncError}'
+                                      : 'تم توليد وحفظ الخطة الغذائية بنجاح'),
+                                  backgroundColor: hasSyncWarning
+                                      ? const Color(0xFFF59E0B)
+                                      : const Color(0xFF059669),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!context.mounted) return;
+                              setModalState(() => isGenerating = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor: const Color(0xFFEF4444),
+                                ),
+                              );
+                            }
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFC026D3),
                       foregroundColor: Colors.white,
@@ -1475,10 +1730,15 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: isGenerating 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    child: isGenerating
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
                         : const Text('✨ توليد وحفظ',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -1490,11 +1750,13 @@ class _OperationsViewState extends ConsumerState<OperationsView>
   }
 
   void _showAddMealPlanModal(AppRiverpod provider) {
-    final residentController = TextEditingController();
+    String residentLookup = '';
+    SpecialistResidentFile? selectedResident;
     final breakfastController = TextEditingController();
     final lunchController = TextEditingController();
     final dinnerController = TextEditingController();
     final instructionsController = TextEditingController();
+    bool isSaving = false;
 
     showModalBottomSheet(
       context: context,
@@ -1531,13 +1793,26 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0F172A))),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: residentController,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المقيم',
-                    hintText: 'اسم المقيم كما يظهر من السيرفر',
-                  ),
+                _buildResidentNutritionSearch(
+                  provider: provider,
+                  labelText: 'بحث عن المقيم',
+                  hintText: 'ابحث بالاسم، رقم الغرفة، أو كود المقيم',
+                  onTextChanged: (value) {
+                    residentLookup = value;
+                    setModalState(() {
+                      selectedResident =
+                          provider.findResidentForNutrition(value);
+                    });
+                  },
+                  onSelected: (resident) {
+                    residentLookup = resident.name;
+                    setModalState(() => selectedResident = resident);
+                  },
                 ),
+                if (selectedResident != null) ...[
+                  const SizedBox(height: 12),
+                  _buildNutritionProfilePreview(provider, selectedResident!),
+                ],
                 const SizedBox(height: 12),
                 TextField(
                   controller: breakfastController,
@@ -1574,19 +1849,42 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      if (residentController.text.isNotEmpty) {
-                        provider.addMealPlan(MealPlan(
-                          residentName: residentController.text,
-                          breakfast: breakfastController.text,
-                          lunch: lunchController.text,
-                          dinner: dinnerController.text,
-                          snacks: '',
-                          specialInstructions: instructionsController.text,
-                        ));
-                        Navigator.pop(context);
-                      }
-                    },
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final lookup =
+                                selectedResident?.name ?? residentLookup.trim();
+                            if (lookup.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('ابحث واختر المقيم أولاً'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                ),
+                              );
+                              return;
+                            }
+                            setModalState(() => isSaving = true);
+                            await provider.addMealPlan(MealPlan(
+                              residentName: lookup,
+                              breakfast: breakfastController.text,
+                              lunch: lunchController.text,
+                              dinner: dinnerController.text,
+                              snacks: '',
+                              specialInstructions: instructionsController.text,
+                            ));
+                            if (!context.mounted) return;
+                            if (provider.backendSyncError != null) {
+                              setModalState(() => isSaving = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(provider.backendSyncError!),
+                                  backgroundColor: const Color(0xFFEF4444),
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.pop(context);
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0369A1),
                       foregroundColor: Colors.white,
@@ -1594,9 +1892,16 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: const Text('حفظ الخطة',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('حفظ الخطة',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -1710,6 +2015,7 @@ class _OperationsViewState extends ConsumerState<OperationsView>
                       spacing: 8,
                       runSpacing: 8,
                       children: session.participants
+                          .map((p) => _activityParticipantName(provider, p))
                           .map((p) => Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
@@ -1742,5 +2048,45 @@ class _OperationsViewState extends ConsumerState<OperationsView>
         );
       },
     );
+  }
+
+  String _activityParticipantName(AppRiverpod provider, String participant) {
+    final clean = participant.trim();
+    if (clean.isEmpty) return 'مشارك غير معروف';
+
+    for (final resident in provider.residentFiles) {
+      if (resident.id == clean ||
+          resident.name == clean ||
+          resident.nameEn == clean ||
+          resident.nationalId == clean) {
+        return resident.name;
+      }
+      for (final member in resident.familyMembers) {
+        if (member.id == clean ||
+            member.userId == clean ||
+            member.email == clean ||
+            member.name == clean) {
+          return member.name;
+        }
+      }
+    }
+
+    for (final member in provider.familyMembersList) {
+      if (member.id == clean ||
+          member.userId == clean ||
+          member.email == clean ||
+          member.name == clean) {
+        return member.name;
+      }
+    }
+
+    return _looksLikeIdentifier(clean) ? 'مشارك غير معروف' : clean;
+  }
+
+  bool _looksLikeIdentifier(String value) {
+    return RegExp(
+          r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+        ).hasMatch(value) ||
+        RegExp(r'^[0-9a-fA-F]{24,}$').hasMatch(value);
   }
 }

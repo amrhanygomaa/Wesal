@@ -17,12 +17,10 @@ class NurseMedicationsScreen extends ConsumerStatefulWidget {
 class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     with TickerProviderStateMixin {
   late AnimationController
-  _blinkController; // متحكم حركات التنبيه (للحالات الفائتة)
+      _blinkController; // متحكم حركات التنبيه (للحالات الفائتة)
   late AnimationController _pulseController; // متحكم حركات النبض البصرية
   late AnimationController _shimmerController; // متحكم حركات التحميل للعناصر
   String _selectedPeriod = 'الظهر'; // الفترة الزمنية المحددة
-  bool _showAllMedicationResidents = false;
-  static const int _initialResidentCardsCount = 2;
 
   @override
   void initState() {
@@ -128,6 +126,7 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
   }
 
   Widget _buildPeriodTabs() {
+    final provider = ref.watch(appRiverpod);
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -137,30 +136,30 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
         children: [
           _periodTab(
             'الصباح',
-            '٨/٨',
-            const Color(0xFFD1FAE5),
-            const Color(0xFF065F46),
+            _periodCountText(provider.medications, 'الصباح'),
+            _periodBadgeBg(provider.medications, 'الصباح'),
+            _periodBadgeFg(provider.medications, 'الصباح'),
             _selectedPeriod == 'الصباح',
           ),
           _periodTab(
             'الظهر',
-            '٢ فائت',
-            const Color(0xFFFEE2E2),
-            const Color(0xFF7F1D1D),
+            _periodCountText(provider.medications, 'الظهر'),
+            _periodBadgeBg(provider.medications, 'الظهر'),
+            _periodBadgeFg(provider.medications, 'الظهر'),
             _selectedPeriod == 'الظهر',
           ),
           _periodTab(
             'المساء',
-            '٧ قادم',
-            const Color(0xFFFEF3C7),
-            const Color(0xFF92400E),
+            _periodCountText(provider.medications, 'المساء'),
+            _periodBadgeBg(provider.medications, 'المساء'),
+            _periodBadgeFg(provider.medications, 'المساء'),
             _selectedPeriod == 'المساء',
           ),
           _periodTab(
             'الليل',
-            '١٢ قادم',
-            const Color(0xFFFEF3C7),
-            const Color(0xFF92400E),
+            _periodCountText(provider.medications, 'الليل'),
+            _periodBadgeBg(provider.medications, 'الليل'),
+            _periodBadgeFg(provider.medications, 'الليل'),
             _selectedPeriod == 'الليل',
           ),
         ],
@@ -180,7 +179,6 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
         onTap: () {
           setState(() {
             _selectedPeriod = label;
-            _showAllMedicationResidents = false;
           });
         },
         child: Container(
@@ -228,6 +226,79 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     );
   }
 
+  String _periodForMedication(Medication medication) {
+    final time = medication.scheduledTime;
+    if (time != null) return _periodForHour(time.hour);
+    if (medication.timeOfDay.contains('الصباح')) return 'الصباح';
+    if (medication.timeOfDay.contains('الظهر')) return 'الظهر';
+    if (medication.timeOfDay.contains('الليل')) return 'الليل';
+    return 'المساء';
+  }
+
+  String _periodForHour(int hour) {
+    if (hour >= 5 && hour < 12) return 'الصباح';
+    if (hour >= 12 && hour < 17) return 'الظهر';
+    if (hour >= 17 && hour < 22) return 'المساء';
+    return 'الليل';
+  }
+
+  List<Medication> _medicationsForPeriod(
+    List<Medication> medications,
+    String period,
+  ) {
+    return medications
+        .where((medication) => _periodForMedication(medication) == period)
+        .toList();
+  }
+
+  String _periodCountText(List<Medication> medications, String period) {
+    final periodMeds = _medicationsForPeriod(medications, period);
+    if (periodMeds.isEmpty) return '٠';
+    final waitingNurse = periodMeds
+        .where((m) => !m.isTaken && m.isElderlyConfirmed && !m.isSkipped)
+        .length;
+    if (waitingNurse > 0) return '${_toArabicDigits(waitingNurse)} تأكيد';
+
+    final missed = periodMeds.where((m) => m.isMissed || m.isSkipped).length;
+    if (missed > 0) return '${_toArabicDigits(missed)} فائت';
+
+    final upcoming = periodMeds
+        .where((m) => !m.isTaken && !m.isSkipped && !m.isMissed)
+        .length;
+    if (upcoming > 0) return '${_toArabicDigits(upcoming)} قادم';
+
+    final completed = periodMeds.where((m) => m.isTaken).length;
+    return '${_toArabicDigits(completed)}/${_toArabicDigits(periodMeds.length)}';
+  }
+
+  Color _periodBadgeBg(List<Medication> medications, String period) {
+    final periodMeds = _medicationsForPeriod(medications, period);
+    if (periodMeds.any((m) => !m.isTaken && m.isElderlyConfirmed)) {
+      return const Color(0xFFDBEAFE);
+    }
+    if (periodMeds.any((m) => m.isMissed || m.isSkipped)) {
+      return const Color(0xFFFEE2E2);
+    }
+    if (periodMeds.any((m) => !m.isTaken)) {
+      return const Color(0xFFFEF3C7);
+    }
+    return const Color(0xFFD1FAE5);
+  }
+
+  Color _periodBadgeFg(List<Medication> medications, String period) {
+    final periodMeds = _medicationsForPeriod(medications, period);
+    if (periodMeds.any((m) => !m.isTaken && m.isElderlyConfirmed)) {
+      return const Color(0xFF1D4ED8);
+    }
+    if (periodMeds.any((m) => m.isMissed || m.isSkipped)) {
+      return const Color(0xFF7F1D1D);
+    }
+    if (periodMeds.any((m) => !m.isTaken)) {
+      return const Color(0xFF92400E);
+    }
+    return const Color(0xFF065F46);
+  }
+
   Widget _buildSearchFilter() {
     return Column(
       children: [
@@ -269,11 +340,14 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     final provider = ref.watch(appRiverpod);
     final total = provider.medications.length;
     final completed = provider.medications.where((m) => m.isTaken).length;
-    final missed = provider.medications
-        .where((m) => m.isMissed || m.isSkipped)
+    final waitingNurse = provider.medications
+        .where((m) => !m.isTaken && m.isElderlyConfirmed && !m.isSkipped)
         .length;
+    final missed =
+        provider.medications.where((m) => m.isMissed || m.isSkipped).length;
     final upcoming = provider.medications
-        .where((m) => !m.isTaken && !m.isSkipped && !m.isMissed)
+        .where((m) =>
+            !m.isTaken && !m.isElderlyConfirmed && !m.isSkipped && !m.isMissed)
         .length;
     final percentage = total > 0 ? (completed / total) : 0.0;
 
@@ -340,6 +414,11 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
                     '$completed جرعة',
                     const Color(0xFF10B981),
                   ),
+                  _statRow(
+                    'ينتظر تأكيد الممرض',
+                    '$waitingNurse جرعة',
+                    const Color(0xFF2563EB),
+                  ),
                   _statRow('فائتة', '$missed جرعة', const Color(0xFFEF4444)),
                   _statRow('قادمة', '$upcoming جرعة', const Color(0xFFF59E0B)),
                   _statRow(
@@ -390,7 +469,7 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     final groupedMeds = <String, List<Medication>>{};
     for (var med in provider.medications) {
       // فلترة الأدوية حسب الفترة الزمنية المحددة (الصباح، الظهر، إلخ)
-      if (!med.timeOfDay.contains(_selectedPeriod)) continue;
+      if (_periodForMedication(med) != _selectedPeriod) continue;
 
       final name = med.residentName ?? 'غير محدد';
       if (!groupedMeds.containsKey(name)) groupedMeds[name] = [];
@@ -398,10 +477,6 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     }
     final residentEntries = groupedMeds.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
-    final visibleEntries = _showAllMedicationResidents
-        ? residentEntries
-        : residentEntries.take(_initialResidentCardsCount).toList();
-    final remainingCount = residentEntries.length - visibleEntries.length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -410,7 +485,7 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
           if (residentEntries.isEmpty)
             _buildEmptyMedicationResidentsState()
           else
-            ...visibleEntries.map((entry) {
+            ...residentEntries.map((entry) {
               final name = entry.key;
               final meds = entry.value;
               final matchedResidents = provider.residentFiles.where(
@@ -423,33 +498,6 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
               );
               return _buildResidentCard(name, meds, isCritical);
             }),
-          if (remainingCount > 0) ...[
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: () {
-                setState(() => _showAllMedicationResidents = true);
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFBAE6FD)),
-                ),
-                child: Text(
-                  '${_remainingResidentsText(remainingCount)} — اضغط لعرض الكل',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0369A1),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -476,20 +524,12 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
     );
   }
 
-  String _remainingResidentsText(int count) {
-    final formattedCount = _toArabicDigits(count);
-    if (count == 1) return '+ مقيم آخر';
-    if (count == 2) return '+ مقيمان آخران';
-    if (count <= 10) return '+ $formattedCount مقيمين آخرين';
-    return '+ $formattedCount مقيم آخر';
-  }
-
   String _toArabicDigits(num value) {
     const digits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
     return value.toString().replaceAllMapped(
-      RegExp(r'\d'),
-      (match) => digits[int.parse(match.group(0)!)],
-    );
+          RegExp(r'\d'),
+          (match) => digits[int.parse(match.group(0)!)],
+        );
   }
 
   Widget _buildResidentCard(
@@ -601,18 +641,17 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
               children: [
                 _gridHeader(),
                 ...meds.map(
-                  (m) => _drugRow(
-                    m.name,
-                    m.dosage,
-                    m.timeOfDay.contains('الصباح')
-                        ? _getStatusWidget(m)
-                        : _na(),
-                    m.timeOfDay.contains('الظهر') ? _getStatusWidget(m) : _na(),
-                    m.timeOfDay.contains('المساء')
-                        ? _getStatusWidget(m)
-                        : _na(),
-                    _na(),
-                  ),
+                  (m) {
+                    final period = _periodForMedication(m);
+                    return _drugRow(
+                      m.name,
+                      m.dosage,
+                      period == 'الصباح' ? _getStatusWidget(m) : _na(),
+                      period == 'الظهر' ? _getStatusWidget(m) : _na(),
+                      period == 'المساء' ? _getStatusWidget(m) : _na(),
+                      period == 'الليل' ? _getStatusWidget(m) : _na(),
+                    );
+                  },
                 ),
               ],
             ),
@@ -629,6 +668,10 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
 
   Widget _getStatusWidget(Medication m) {
     if (m.isTaken) return _done();
+    if (m.isElderlyConfirmed) {
+      return _pendingNurse(m, isResidentConfirmed: true);
+    }
+    if (m.isMissed || m.isSkipped) return _miss();
     // عرض زر التأكيد للممرض دائماً طالما لم يتم أخذ الدواء بعد (التأكيد المزدوج)
     return _pendingNurse(m);
   }
@@ -660,14 +703,13 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
 
   Widget _done() =>
       _circ('✓', const Color(0xFFD1FAE5), const Color(0xFF065F46));
-  // ignore: unused_element
   Widget _miss() =>
       _circ('!', const Color(0xFFFEE2E2), const Color(0xFFEF4444), blink: true);
   // ignore: unused_element
   Widget _pend() =>
       _circ('○', const Color(0xFFF1F5F9), const Color(0xFF94A3B8));
 
-  Widget _pendingNurse(Medication m) {
+  Widget _pendingNurse(Medication m, {bool isResidentConfirmed = false}) {
     return GestureDetector(
       onTap: () {
         _showDoneAnimation('تم تأكيد الدواء وإشعار الأسرة ✅');
@@ -676,16 +718,24 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF3C7),
+          color: isResidentConfirmed
+              ? const Color(0xFFDBEAFE)
+              : const Color(0xFFFEF3C7),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFFD97706)),
+          border: Border.all(
+            color: isResidentConfirmed
+                ? const Color(0xFF2563EB)
+                : const Color(0xFFD97706),
+          ),
         ),
-        child: const Text(
-          'تأكيد',
+        child: Text(
+          isResidentConfirmed ? 'اعتماد' : 'تأكيد',
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            color: Color(0xFFD97706),
+            color: isResidentConfirmed
+                ? const Color(0xFF1D4ED8)
+                : const Color(0xFFD97706),
           ),
         ),
       ),
@@ -762,15 +812,15 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
       child: Row(
         children: isExpanded
             ? btns
-                  .map(
-                    (b) => Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(left: b == btns.last ? 0 : 7),
-                        child: b,
-                      ),
+                .map(
+                  (b) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: b == btns.last ? 0 : 7),
+                      child: b,
                     ),
-                  )
-                  .toList()
+                  ),
+                )
+                .toList()
             : btns,
       ),
     );
@@ -825,18 +875,18 @@ class _NurseMedicationsScreenState extends ConsumerState<NurseMedicationsScreen>
   }
 
   Widget _medH(String t) => SizedBox(
-    width: 48,
-    child: Center(
-      child: Text(
-        t,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF64748B),
+        width: 48,
+        child: Center(
+          child: Text(
+            t,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 
   Widget _drugRow(
     String n,

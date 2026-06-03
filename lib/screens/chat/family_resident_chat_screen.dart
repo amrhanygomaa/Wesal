@@ -3,12 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart' as file_picker;
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../config/api_config.dart';
+import '../../models/app_models.dart';
 import '../../providers/app_riverpod.dart';
 import '../../services/ai_media_service.dart';
 import '../../services/messages_service.dart';
 import '../../services/realtime_service.dart';
+import '../elderly/full_screen_image_screen.dart';
 
 class FamilyResidentChatScreen extends ConsumerStatefulWidget {
   final String otherUserId;
@@ -188,13 +193,9 @@ class _FamilyResidentChatScreenState
                   child: Icon(Icons.insert_drive_file_rounded,
                       color: Color(0xFF059669))),
               title: const Text('إرسال ملف'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('إرسال الملفات غير مدعوم حالياً'),
-                      behavior: SnackBarBehavior.floating),
-                );
+                await _pickAndSendFile();
               },
             ),
           ],
@@ -215,12 +216,16 @@ class _FamilyResidentChatScreenState
         residentId: ref.read(appRiverpod).backendResidentId,
       );
       if (!mounted) return;
+      final mediaUrl = (upload.mediaUrl ?? '').trim();
+      if (mediaUrl.isEmpty) {
+        throw Exception('تم رفع الصورة لكن لم يرجع السيرفر رابط عرضها');
+      }
 
       final sent = await MessagesService.instance.send(
         recipientId: widget.otherUserId,
-        body: '📷 صورة',
+        body: 'صورة',
         residentId: widget.residentId,
-        mediaUrl: upload.mediaUrl ?? upload.id,
+        mediaUrl: mediaUrl,
         mediaType: 'image',
       );
       if (!mounted) return;
@@ -231,6 +236,58 @@ class _FamilyResidentChatScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('فشل إرسال الصورة: $e'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingAttachment = false);
+    }
+  }
+
+  Future<void> _pickAndSendFile() async {
+    try {
+      final result = await file_picker.FilePicker.platform.pickFiles(
+        type: file_picker.FileType.any,
+        withData: false,
+      );
+      if (result == null || result.files.isEmpty || !mounted) return;
+      final picked = result.files.single;
+      final path = picked.path;
+      if (path == null || path.isEmpty) {
+        throw Exception('تعذر الوصول لمسار الملف المختار');
+      }
+
+      setState(() => _uploadingAttachment = true);
+      final upload = await AiMediaService.instance.uploadFile(
+        filePath: path,
+        residentId: ref.read(appRiverpod).backendResidentId,
+      );
+      if (!mounted) return;
+      final mediaUrl = (upload.mediaUrl ?? '').trim();
+      if (mediaUrl.isEmpty) {
+        throw Exception('تم رفع الملف لكن لم يرجع السيرفر رابط تحميله');
+      }
+
+      final fileName = upload.fileName.trim().isNotEmpty
+          ? upload.fileName.trim()
+          : (picked.name.isNotEmpty ? picked.name : 'ملف مرفق');
+      final sent = await MessagesService.instance.send(
+        recipientId: widget.otherUserId,
+        body: fileName,
+        residentId: widget.residentId,
+        mediaUrl: mediaUrl,
+        mediaType: upload.contentType.trim().isNotEmpty
+            ? upload.contentType.trim()
+            : 'file',
+      );
+      if (!mounted) return;
+      setState(() => _messages.add(sent));
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('فشل إرسال الملف: $e'),
             backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating),
       );
@@ -253,8 +310,38 @@ class _FamilyResidentChatScreenState
 
   String get _myUserId => ref.read(appRiverpod).backendUserId ?? '';
 
+  SpecialistResidentFile? _findResident(AppRiverpod provider) {
+    final ids = [
+      widget.residentId,
+      widget.otherUserId,
+    ].where((id) => id != null && id.trim().isNotEmpty).map((id) => id!.trim());
+
+    for (final id in ids) {
+      for (final resident in provider.residentFiles) {
+        if (resident.id == id) return resident;
+      }
+    }
+    return null;
+  }
+
+  String _chatSubtitle(AppRiverpod provider) {
+    final role = widget.otherUserRole?.trim() ?? '';
+    final resident = _findResident(provider);
+    final isResidentChat = resident != null ||
+        widget.residentId?.trim().isNotEmpty == true ||
+        role == 'المقيم' ||
+        role.toLowerCase() == 'resident' ||
+        role.toLowerCase() == 'elderly';
+    if (isResidentChat) {
+      return 'حالة المقيم ${resident?.isOnline == true ? 'متصل' : 'غير متصل'}';
+    }
+    return role;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final provider = ref.watch(appRiverpod);
+    final subtitle = _chatSubtitle(provider);
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
@@ -285,8 +372,8 @@ class _FamilyResidentChatScreenState
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.bold)),
-                if (widget.otherUserRole != null)
-                  Text(widget.otherUserRole!,
+                if (subtitle.isNotEmpty)
+                  Text(subtitle,
                       style:
                           const TextStyle(color: Colors.white70, fontSize: 11)),
               ],
@@ -427,7 +514,7 @@ class _FamilyResidentChatScreenState
                                 Icon(Icons.image_rounded,
                                     size: 48, color: Color(0xFF94a3b8)),
                                 SizedBox(height: 12),
-                                Text('جاري تحميل الصورة...',
+                                Text('جاري رفع المرفق...',
                                     style: TextStyle(
                                         color: Color(0xFF94a3b8),
                                         fontSize: 12)),
@@ -486,7 +573,9 @@ class _FamilyResidentChatScreenState
   Widget _buildBubble(BackendRoleMessage msg) {
     final isMe = msg.senderId == _myUserId;
     final time = _formatTime(msg.createdAt);
-    final hasMedia = msg.mediaUrl != null && msg.mediaType == 'image';
+    final mediaUrl = _resolveMediaUrl(msg.mediaUrl);
+    final hasAttachment = mediaUrl != null;
+    final hasImage = _isImageMessage(msg);
     final isRead = msg.readAt != null && msg.readAt!.isNotEmpty;
 
     return Padding(
@@ -519,12 +608,12 @@ class _FamilyResidentChatScreenState
                   constraints: BoxConstraints(
                     maxWidth: MediaQuery.of(context).size.width * 0.7,
                   ),
-                  padding: hasMedia
+                  padding: hasImage
                       ? const EdgeInsets.all(4)
                       : const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    gradient: isMe && !hasMedia
+                    gradient: isMe && !hasAttachment
                         ? LinearGradient(
                             colors: [
                               widget.accentColor,
@@ -534,9 +623,9 @@ class _FamilyResidentChatScreenState
                             end: Alignment.bottomRight,
                           )
                         : null,
-                    color: (isMe && !hasMedia)
+                    color: (isMe && !hasAttachment)
                         ? null
-                        : (hasMedia ? null : Colors.white),
+                        : (hasImage ? null : Colors.white),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(20),
                       topRight: const Radius.circular(20),
@@ -553,40 +642,8 @@ class _FamilyResidentChatScreenState
                       ),
                     ],
                   ),
-                  child: hasMedia
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                msg.mediaUrl!,
-                                width: MediaQuery.of(context).size.width * 0.6,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 200,
-                                  height: 200,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: const Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.broken_image_rounded,
-                                          size: 32, color: Color(0xFF94a3b8)),
-                                      SizedBox(height: 8),
-                                      Text('فشل تحميل الصورة',
-                                          style: TextStyle(
-                                              color: Color(0xFF94a3b8),
-                                              fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
+                  child: hasAttachment
+                      ? _buildAttachmentContent(msg, mediaUrl, hasImage)
                       : Text(
                           msg.body,
                           textAlign: TextAlign.right,
@@ -626,6 +683,196 @@ class _FamilyResidentChatScreenState
         ],
       ),
     );
+  }
+
+  Widget _buildAttachmentContent(
+    BackendRoleMessage msg,
+    String mediaUrl,
+    bool hasImage,
+  ) {
+    if (!hasImage) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _openMediaExternally(mediaUrl),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: widget.accentColor.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.download_rounded,
+                  color: widget.accentColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                _attachmentTitle(msg),
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF1e293b),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final heroTag = _imageHeroTag(msg);
+    final width = MediaQuery.of(context).size.width * 0.6;
+    return GestureDetector(
+      onTap: () => _openImageFullScreen(msg, mediaUrl, heroTag),
+      onLongPress: () => _openMediaExternally(mediaUrl),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Hero(
+              tag: heroTag,
+              child: Image.network(
+                mediaUrl,
+                width: width,
+                height: 220,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: width,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image_rounded,
+                          size: 32, color: Color(0xFF94a3b8)),
+                      SizedBox(height: 8),
+                      Text('فشل تحميل الصورة',
+                          style: TextStyle(
+                              color: Color(0xFF94a3b8), fontSize: 12)),
+                      SizedBox(height: 4),
+                      Text('اضغط لفتح الرابط',
+                          style: TextStyle(
+                              color: Color(0xFF64748b), fontSize: 11)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 8,
+            bottom: 8,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.open_in_full_rounded,
+                  color: Colors.white, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _isImageMessage(BackendRoleMessage msg) {
+    final mediaUrl = _resolveMediaUrl(msg.mediaUrl);
+    if (mediaUrl == null) return false;
+    final mediaType = (msg.mediaType ?? '').toLowerCase().trim();
+    if (mediaType == 'image' || mediaType.startsWith('image/')) return true;
+
+    final path =
+        Uri.tryParse(mediaUrl)?.path.toLowerCase() ?? mediaUrl.toLowerCase();
+    return path.endsWith('.jpg') ||
+        path.endsWith('.jpeg') ||
+        path.endsWith('.png') ||
+        path.endsWith('.webp') ||
+        path.endsWith('.gif');
+  }
+
+  String? _resolveMediaUrl(String? raw) {
+    final url = raw?.trim() ?? '';
+    if (url.isEmpty) return null;
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      return '${ApiConfig.baseUrl}$url';
+    }
+    return url;
+  }
+
+  String _imageHeroTag(BackendRoleMessage msg) {
+    final fallback = msg.createdAt.isNotEmpty ? msg.createdAt : msg.mediaUrl;
+    return 'chat_image_${msg.id.isNotEmpty ? msg.id : fallback}';
+  }
+
+  String? _imageLabel(BackendRoleMessage msg) {
+    final body = msg.body.trim();
+    if (body.isEmpty ||
+        body == 'صورة' ||
+        body == '📷 صورة' ||
+        body == 'صورة 📷') {
+      return null;
+    }
+    return body;
+  }
+
+  String _attachmentTitle(BackendRoleMessage msg) {
+    final body = msg.body.trim();
+    if (body.isNotEmpty && body != '📎 ملف' && body != 'ملف') {
+      return body;
+    }
+    final mediaType = msg.mediaType?.trim();
+    if (mediaType != null && mediaType.isNotEmpty) {
+      return 'ملف مرفق ($mediaType)';
+    }
+    return 'ملف مرفق';
+  }
+
+  void _openImageFullScreen(
+    BackendRoleMessage msg,
+    String mediaUrl,
+    String heroTag,
+  ) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            FullScreenImageScreen(
+          heroTag: heroTag,
+          url: mediaUrl,
+          label: _imageLabel(msg),
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
+  Future<void> _openMediaExternally(String mediaUrl) async {
+    final uri = Uri.tryParse(mediaUrl);
+    if (uri == null) return;
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر فتح رابط المرفق'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   Widget _buildInput() {

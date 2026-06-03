@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/app_riverpod.dart';
 import '../../../models/app_models.dart';
+import '../../../widgets/app_popup_notification.dart';
 
 class VisitApprovalView extends ConsumerWidget {
   final List<Animation<double>> fadeAnimations;
@@ -11,8 +12,7 @@ class VisitApprovalView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final provider = ref.watch(appRiverpod);
-    final pendingVisits =
-        provider.familyVisits.where((v) => v.status == 'pending').toList();
+    final pendingVisits = provider.familyVisits.where(_isPendingVisit).toList();
 
     return Column(
       children: [
@@ -35,6 +35,19 @@ class VisitApprovalView extends ConsumerWidget {
         const SizedBox(height: 40),
       ],
     );
+  }
+
+  bool _isPendingVisit(FamilyVisit visit) {
+    final status = visit.status.toLowerCase().trim();
+    return status == 'pending' ||
+        status == 'requested' ||
+        status == 'waiting' ||
+        status == 'new' ||
+        status == 'submitted' ||
+        status.contains('pending') ||
+        status.contains('await') ||
+        status.contains('معلق') ||
+        status.contains('انتظار');
   }
 
   Widget _buildHeader(int count) {
@@ -130,7 +143,7 @@ class VisitApprovalView extends ConsumerWidget {
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1e293b))),
-                    Text('الموعد: ${v.time}',
+                    Text('الموعد: ${v.date} - ${v.time}',
                         style: const TextStyle(
                             fontSize: 12, color: Color(0xFF64748b))),
                   ],
@@ -145,10 +158,18 @@ class VisitApprovalView extends ConsumerWidget {
             children: [
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    ref.read(appRiverpod).approveVisit(v.id);
+                  onPressed: () async {
+                    final provider = ref.read(appRiverpod);
+                    final ok = await provider.approveVisit(v.id);
+                    if (!context.mounted) return;
                     _showActionFeedback(
-                        context, 'تمت الموافقة على الزيارة بنجاح ✅');
+                      context,
+                      ok
+                          ? 'تمت الموافقة على الزيارة بنجاح'
+                          : (provider.backendSyncError ??
+                              'تعذر تحديث حالة الزيارة'),
+                      isError: !ok,
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFdcfce7),
@@ -164,10 +185,18 @@ class VisitApprovalView extends ConsumerWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {
-                    ref.read(appRiverpod).rejectVisit(v.id);
-                    _showActionFeedback(context, 'تم رفض طلب الزيارة ❌',
-                        isError: true);
+                  onPressed: () async {
+                    final provider = ref.read(appRiverpod);
+                    final ok = await provider.rejectVisit(v.id);
+                    if (!context.mounted) return;
+                    _showActionFeedback(
+                      context,
+                      ok
+                          ? 'تم رفض طلب الزيارة'
+                          : (provider.backendSyncError ??
+                              'تعذر تحديث حالة الزيارة'),
+                      isError: !ok,
+                    );
                   },
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFFfee2e2)),
@@ -217,15 +246,13 @@ class VisitApprovalView extends ConsumerWidget {
 
   void _showActionFeedback(BuildContext context, String msg,
       {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor:
-            isError ? const Color(0xFFef4444) : const Color(0xFF10b981),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+    showAppPopupNotification(
+      context,
+      message: msg,
+      type: isError
+          ? AppPopupNotificationType.error
+          : AppPopupNotificationType.success,
+      duration: const Duration(seconds: 3),
     );
   }
 }
