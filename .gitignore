@@ -117,6 +117,8 @@ mem_test.txt
 google-service-account.json
 *.pem
 *.p12
+# Filled-in build config (keep dart_defines.example.json, ignore the real one)
+dart_defines.json
 
 # Documentation / export files (generated externally)
 *.pdf
