@@ -1109,25 +1109,27 @@ class BackendSyncService {
   }
 
   String _mediaUrlFromJson(Map<String, dynamic> j) {
-    return _s(
-      j['imageUrl'] ??
-          j['image_url'] ??
-          j['mediaUrl'] ??
-          j['media_url'] ??
-          j['downloadUrl'] ??
-          j['download_url'] ??
-          j['fileUrl'] ??
-          j['file_url'] ??
-          j['publicUrl'] ??
-          j['public_url'] ??
-          j['s3Url'] ??
-          j['s3_url'] ??
-          j['objectUrl'] ??
-          j['object_url'] ??
-          j['presignedUrl'] ??
-          j['presigned_url'] ??
-          j['url'],
-      fallback: '',
+    return _repairDeadMediaUrl(
+      _s(
+        j['imageUrl'] ??
+            j['image_url'] ??
+            j['mediaUrl'] ??
+            j['media_url'] ??
+            j['downloadUrl'] ??
+            j['download_url'] ??
+            j['fileUrl'] ??
+            j['file_url'] ??
+            j['publicUrl'] ??
+            j['public_url'] ??
+            j['s3Url'] ??
+            j['s3_url'] ??
+            j['objectUrl'] ??
+            j['object_url'] ??
+            j['presignedUrl'] ??
+            j['presigned_url'] ??
+            j['url'],
+        fallback: '',
+      ),
     );
   }
 
@@ -1747,6 +1749,33 @@ class BackendSyncService {
   String _s(Object? value, {String fallback = ''}) {
     final text = value?.toString() ?? '';
     return text.isEmpty ? fallback : text;
+  }
+
+  // بيانات الـ demo القديمة فيها روابط صور تشير إلى buckets لم تعد موجودة (404):
+  //   - storage.googleapis.com/wanas-media/...
+  //   - raaya-media.s3.amazonaws.com/...
+  // نعيد توجيه روابط الصور المعطوبة إلى صورة حقيقية ثابتة من picsum (نفس اسم
+  // الملف كـ seed) حتى تظهر الذكريات حتى لو لم يُصلَّح الـ backend بعد (migration 046).
+  // ملفات الصوت (.mp3) تُترك كما هي.
+  static final RegExp _imageExtPattern =
+      RegExp(r'\.(jpe?g|png|webp|gif)$', caseSensitive: false);
+
+  String _repairDeadMediaUrl(String url) {
+    final value = url.trim();
+    if (value.isEmpty) return value;
+    final isDeadHost =
+        value.contains('storage.googleapis.com/wanas-media/') ||
+            value.contains('raaya-media.s3.amazonaws.com/');
+    if (!isDeadHost) return value;
+
+    final pathOnly = value.split('?').first;
+    final fileName =
+        pathOnly.split('/').where((p) => p.isNotEmpty).lastOrNull ?? '';
+    if (!_imageExtPattern.hasMatch(fileName)) return value; // لا نلمس الصوت
+
+    final seed = fileName.replaceAll(RegExp(r'\.[^.]+$'), '');
+    return 'https://picsum.photos/seed/'
+        '${seed.isEmpty ? 'wanas-memory' : seed}/800/800';
   }
 
   int _int(Object? value, {int fallback = 0}) {
