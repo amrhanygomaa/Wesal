@@ -3981,8 +3981,9 @@ class AppRiverpod extends ChangeNotifier {
               'تحدث بالعربية المصرية بلهجة طبيعية ودافئة ومطمئنة. النبرة هادئة مناسبة لكبار السن، سرعة متوسطة.',
           timeout: const Duration(seconds: 10),
         );
-        if (speech.audioBase64.trim().isEmpty)
+        if (speech.audioBase64.trim().isEmpty) {
           throw const FormatException('Empty Gemini audio');
+        }
 
         final bytes = base64Decode(speech.audioBase64);
         final completer = Completer<void>();
